@@ -8,7 +8,6 @@
     <link rel="manifest" href="site.webmanifest">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
     
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -17,14 +16,13 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     
     <style>
-        /* --- DESIGN GÉNÉRAL --- */
         body { 
             font-family: 'Segoe UI', Roboto, sans-serif; 
             margin: 0; background-color: #f4f6f8; color: #333;
             -webkit-tap-highlight-color: transparent;
         }
         
-        /* --- BARRE DE RECHERCHE (NOUVEAU DESIGN) --- */
+        /* --- HEADER FIXE --- */
         header {
             position: fixed; top: 0; left: 0; right: 0;
             background: white; 
@@ -35,9 +33,9 @@
             display: flex; justify-content: center;
         }
 
-        /* Conteneur pour superposer la croix sur l'input */
+        /* --- CONTENEUR BARRE DE RECHERCHE --- */
         .search-container {
-            position: relative;
+            position: relative; /* Indispensable pour positionner la croix */
             width: 95%;
             max-width: 600px;
         }
@@ -45,34 +43,47 @@
         #search-input {
             width: 100%; 
             padding: 15px 20px; 
-            padding-right: 50px; /* Place pour la croix */
+            padding-right: 50px; /* Espace à droite pour ne pas écrire sous la croix */
             font-size: 20px; 
             border: 2px solid #dfe1e5; 
             border-radius: 50px;
             outline: none; 
             background: #f1f3f4;
-            box-sizing: border-box; /* Important pour ne pas dépasser */
+            box-sizing: border-box; 
             transition: all 0.3s;
+            /* Force l'input à être en dessous de la croix */
+            z-index: 1; 
         }
         #search-input:focus { 
             border-color: #007bff; background: #fff;
         }
 
-        /* LA CROIX DE SUPPRESSION */
+        /* --- LA CROIX (CORRIGÉE) --- */
         #clear-btn {
             position: absolute;
-            right: 15px;
+            right: 10px;        /* Collé à droite */
             top: 50%;
-            transform: translateY(-50%);
-            font-size: 24px;
+            transform: translateY(-50%); /* Centré verticalement */
+            
+            width: 40px;        /* Large zone de clic */
+            height: 40px;
+            line-height: 40px;  /* Centre le X en hauteur */
+            text-align: center;
+            
+            font-size: 28px;    /* Croix bien visible */
             color: #999;
             cursor: pointer;
-            padding: 5px; /* Zone de clic plus large */
-            display: none; /* Caché par défaut */
+            z-index: 100;       /* Force la croix au-dessus de tout */
+            
+            display: none;      /* Caché par défaut */
+            background: transparent;
+            border-radius: 50%;
         }
-        #clear-btn:hover { color: #333; }
+        
+        /* Petit effet quand on touche la croix */
+        #clear-btn:active { background-color: #eee; color: #333; }
 
-        /* --- GRILLE --- */
+        /* --- RESULTATS --- */
         #results-container {
             margin-top: 120px; 
             padding: 15px;
@@ -114,7 +125,7 @@
 <header>
     <div class="search-container">
         <input type="text" id="search-input" placeholder="Rechercher..." autofocus>
-        <span id="clear-btn">&times;</span>
+        <div id="clear-btn">&times;</div>
     </div>
 </header>
 
@@ -123,7 +134,7 @@
 </div>
 
 <script>
-    // --- SERVICE WORKER ---
+    // --- PWA ---
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('sw.js').catch(err => console.log('Erreur SW:', err));
@@ -150,15 +161,12 @@
         return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     }
 
-    // --- AFFICHAGE ---
     function displayProducts(products) {
         const displayLimit = products.length > 40 ? 40 : products.length;
-        
         if(products.length === 0) {
             container.innerHTML = "<p style='text-align:center;width:100%;font-size:22px;'>Aucun résultat.</p>";
             return;
         }
-
         let html = "";
         for (let i = 0; i < displayLimit; i++) {
             const p = products[i];
@@ -178,14 +186,12 @@
         container.innerHTML = html;
     }
 
-    // --- RECHERCHE ET CROIX ---
-    
-    // Fonction qui lance la recherche
+    // --- LOGIQUE CROIX ---
     function performSearch() {
         window.scrollTo({top: 0, behavior: 'instant'});
         const query = normalize(input.value);
-        
-        // Gérer la visibilité de la croix
+
+        // AFFICHER OU CACHER LA CROIX
         if (query.length > 0) {
             clearBtn.style.display = "block";
         } else {
@@ -202,14 +208,15 @@
         displayProducts(filtered);
     }
 
-    // Écouteur sur la frappe
+    // Détection de frappe
     input.addEventListener('input', performSearch);
 
-    // Écouteur sur la croix
-    clearBtn.addEventListener('click', () => {
-        input.value = "";       // Vide le champ
-        input.focus();          // Remet le curseur dedans
-        performSearch();        // Relance la recherche (pour tout réafficher)
+    // Clic sur la croix
+    clearBtn.addEventListener('click', (e) => {
+        e.preventDefault();     // Empêche les bugs tactiles
+        input.value = "";       // Vide le texte
+        performSearch();        // Relance (pour cacher la croix et montrer les produits)
+        input.focus();          // Remet le clavier
     });
 
 </script>
