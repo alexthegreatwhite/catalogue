@@ -16,107 +16,19 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     
     <style>
-        body { 
-            font-family: 'Segoe UI', Roboto, sans-serif; 
-            margin: 0; background-color: #f4f6f8; color: #333;
-            -webkit-tap-highlight-color: transparent;
-        }
-        
-        /* --- HEADER FIXE --- */
-        header {
-            position: fixed; top: 0; left: 0; right: 0;
-            background: white; 
-            padding: 10px;
-            padding-top: calc(10px + env(safe-area-inset-top));
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            z-index: 1000; 
-            display: flex; justify-content: center;
-        }
-
-        /* --- CONTENEUR BARRE DE RECHERCHE --- */
-        .search-container {
-            position: relative; /* Indispensable pour positionner la croix */
-            width: 95%;
-            max-width: 600px;
-        }
-
-        #search-input {
-            width: 100%; 
-            padding: 15px 20px; 
-            padding-right: 50px; /* Espace à droite pour ne pas écrire sous la croix */
-            font-size: 20px; 
-            border: 2px solid #dfe1e5; 
-            border-radius: 50px;
-            outline: none; 
-            background: #f1f3f4;
-            box-sizing: border-box; 
-            transition: all 0.3s;
-            /* Force l'input à être en dessous de la croix */
-            z-index: 1; 
-        }
-        #search-input:focus { 
-            border-color: #007bff; background: #fff;
-        }
-
-        /* --- LA CROIX (CORRIGÉE) --- */
-        #clear-btn {
-            position: absolute;
-            right: 10px;        /* Collé à droite */
-            top: 50%;
-            transform: translateY(-50%); /* Centré verticalement */
-            
-            width: 40px;        /* Large zone de clic */
-            height: 40px;
-            line-height: 40px;  /* Centre le X en hauteur */
-            text-align: center;
-            
-            font-size: 28px;    /* Croix bien visible */
-            color: #999;
-            cursor: pointer;
-            z-index: 100;       /* Force la croix au-dessus de tout */
-            
-            display: none;      /* Caché par défaut */
-            background: transparent;
-            border-radius: 50%;
-        }
-        
-        /* Petit effet quand on touche la croix */
-        #clear-btn:active { background-color: #eee; color: #333; }
-
-        /* --- RESULTATS --- */
-        #results-container {
-            margin-top: 120px; 
-            padding: 15px;
-            padding-bottom: 100px;
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); 
-            gap: 25px;
-        }
-
-        .card {
-            background: white; border-radius: 16px;
-            overflow: hidden; padding: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-            display: flex; flex-direction: column; 
-            border: 1px solid #eee;
-        }
-
-        .card-img {
-            width: 100%; height: 250px;
-            object-fit: contain; margin-bottom: 20px; 
-            border-bottom: 1px solid #f8f9fa;
-        }
-
+        body { font-family: 'Segoe UI', Roboto, sans-serif; margin: 0; background-color: #f4f6f8; color: #333; -webkit-tap-highlight-color: transparent; }
+        header { position: fixed; top: 0; left: 0; right: 0; background: white; padding: 10px; padding-top: calc(10px + env(safe-area-inset-top)); box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; display: flex; justify-content: center; }
+        .search-container { position: relative; width: 95%; max-width: 600px; }
+        #search-input { width: 100%; padding: 15px 20px; padding-right: 50px; font-size: 20px; border: 2px solid #dfe1e5; border-radius: 50px; outline: none; background: #f1f3f4; box-sizing: border-box; transition: all 0.3s; z-index: 1; }
+        #search-input:focus { border-color: #007bff; background: #fff; }
+        #clear-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; line-height: 40px; text-align: center; font-size: 28px; color: #999; cursor: pointer; z-index: 100; display: none; background: transparent; border-radius: 50%; }
+        #results-container { margin-top: 120px; padding: 15px; padding-bottom: 100px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; }
+        .card { background: white; border-radius: 16px; overflow: hidden; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); display: flex; flex-direction: column; border: 1px solid #eee; }
+        .card-img { width: 100%; height: 250px; object-fit: contain; margin-bottom: 20px; border-bottom: 1px solid #f8f9fa; background-color: #f9f9f9; }
         .info-line { margin-bottom: 10px; line-height: 1.4; }
         .p-name { font-size: 24px; font-weight: 800; color: #000; }
         .p-brand, .p-details { font-size: 20px; color: #444; font-weight: 500; }
-        .p-ref { 
-            font-family: monospace; background: #f8d7da; color: #dc3545;
-            padding: 8px 15px; border-radius: 8px; 
-            font-size: 32px; font-weight: 900;    
-            display: inline-block; margin: 10px 0; border: 2px solid #dc3545;
-        }
-
+        .p-ref { font-family: monospace; background: #f8d7da; color: #dc3545; padding: 8px 15px; border-radius: 8px; font-size: 32px; font-weight: 900; display: inline-block; margin: 10px 0; border: 2px solid #dc3545; }
         .loading { text-align: center; margin-top: 150px; color: #888; font-size: 22px; }
     </style>
 </head>
@@ -134,10 +46,23 @@
 </div>
 
 <script>
-    // --- PWA ---
+    // === 1. IMAGE DE SECOURS (Base64 pour éviter l'appel internet) ===
+    const PLACEHOLDER_IMG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkqAcAAIUAgUW0RjgAAAAASUVORK5CYII=";
+
+    // === 2. GESTION DU CACHE (SERVICE WORKER) ===
+    // On force la mise à jour pour que le téléphone arrête d'utiliser la vieille version
     if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            for(let registration of registrations) {
+                // On désinscrit l'ancien pour forcer le rechargement
+                registration.unregister();
+            }
+        });
+        // On réinstalle le nouveau
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('sw.js').catch(err => console.log('Erreur SW:', err));
+            navigator.serviceWorker.register('sw.js').then(reg => {
+                console.log('Nouveau SW installé');
+            });
         });
     }
 
@@ -146,7 +71,6 @@
     const input = document.getElementById('search-input');
     const clearBtn = document.getElementById('clear-btn');
 
-    // --- CHARGEMENT ---
     Papa.parse("base.csv", {
         download: true, header: true, skipEmptyLines: true,
         complete: function(results) {
@@ -176,7 +100,8 @@
 
             html += `
             <div class="card">
-                <img src="${imgSrc}" class="card-img" onerror="this.src='https://via.placeholder.com/300x300?text=Pas+d+image'">
+                <img src="${imgSrc}" class="card-img" onerror="this.onerror=null;this.src='${PLACEHOLDER_IMG}'">
+                
                 <div class="info-line p-name">${p['Nom'] || "-"}</div>
                 <div class="info-line p-brand">${p['Marque'] || "-"} (${p['Pays'] || ""})</div>
                 <div><span class="p-ref">${refFormatted}</span></div>
@@ -186,17 +111,11 @@
         container.innerHTML = html;
     }
 
-    // --- LOGIQUE CROIX ---
     function performSearch() {
         window.scrollTo({top: 0, behavior: 'instant'});
         const query = normalize(input.value);
-
-        // AFFICHER OU CACHER LA CROIX
-        if (query.length > 0) {
-            clearBtn.style.display = "block";
-        } else {
-            clearBtn.style.display = "none";
-        }
+        if (query.length > 0) { clearBtn.style.display = "block"; } 
+        else { clearBtn.style.display = "none"; }
 
         const terms = query.split(" ").filter(t => t.length > 0);
         if (terms.length === 0) { displayProducts(allProducts); return; }
@@ -208,17 +127,13 @@
         displayProducts(filtered);
     }
 
-    // Détection de frappe
     input.addEventListener('input', performSearch);
-
-    // Clic sur la croix
     clearBtn.addEventListener('click', (e) => {
-        e.preventDefault();     // Empêche les bugs tactiles
-        input.value = "";       // Vide le texte
-        performSearch();        // Relance (pour cacher la croix et montrer les produits)
-        input.focus();          // Remet le clavier
+        e.preventDefault();
+        input.value = "";
+        performSearch();
+        input.focus();
     });
-
 </script>
 
 </body>
