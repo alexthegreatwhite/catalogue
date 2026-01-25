@@ -172,37 +172,35 @@
 
     // === 4. AFFICHAGE DES CARTES ===
     function displayProducts(products) {
-        // On limite à 40 pour la fluidité, le reste s'affiche en cherchant
-        const displayLimit = products.length > 40 ? 40 : products.length;
-        
-        if(products.length === 0) {
-            container.innerHTML = "<p style='text-align:center; width:100%; font-size:22px;'>Aucun résultat.</p>";
-            return;
-        }
-
-        let html = "";
-        for (let i = 0; i < displayLimit; i++) {
-            const p = products[i];
-            const nom = p['Nom'] || "-";
-            const marque = p['Marque'] || "-";
-            const pays = p['Pays'] || "";
-            const ref = p['Référence'] || "000000";
-            const cond = p['Conditionnement'] || "-";
-            const imgSrc = `images/${ref}.webp`;
-
-            html += `
-            <div class="card">
-                <img src="${imgSrc}" class="card-img" onerror="this.src='https://via.placeholder.com/300x300?text=Pas+d+image'">
-                <div class="info-line p-name">${nom}</div>
-                <div class="info-line p-brand">${marque} <span style="font-weight:normal; font-size:18px">(${pays})</span></div>
-                <div class="p-ref-container">
-                    <span class="p-ref">${ref}</span>
-                </div>
-                <div class="info-line p-details">Cond: ${cond}</div>
-            </div>`;
-        }
-        container.innerHTML = html;
+    const displayLimit = products.length > 40 ? 40 : products.length;
+    if(products.length === 0) {
+        container.innerHTML = "<p style='text-align:center;width:100%;font-size:22px;'>Aucun résultat.</p>";
+        return;
     }
+
+    let html = "";
+    for (let i = 0; i < displayLimit; i++) {
+        const p = products[i];
+        
+        // --- LA CORRECTION EST ICI ---
+        let refRaw = p['Référence'] || "000000";
+        // On force la référence à avoir 6 caractères en ajoutant des '0' au début
+        let refFormatted = refRaw.toString().padStart(6, '0');
+        
+        // On utilise la référence formatée pour l'image
+        const imgSrc = `images/${refFormatted}.webp`;
+
+        html += `
+        <div class="card">
+            <img src="${imgSrc}" class="card-img" onerror="this.src='https://via.placeholder.com/300x300?text=Pas+d+image'">
+            <div class="p-name">${p['Nom'] || "-"}</div>
+            <div class="p-brand">${p['Marque'] || "-"} (${p['Pays'] || ""})</div>
+            <div style="margin: 10px 0;"><span class="p-ref">${refFormatted}</span></div>
+            <div class="p-details">Cond: ${p['Conditionnement'] || "-"}</div>
+        </div>`;
+    }
+    container.innerHTML = html;
+}
 
     // === 5. RECHERCHE AVEC REMONTÉE AUTOMATIQUE ===
     input.addEventListener('input', (e) => {
