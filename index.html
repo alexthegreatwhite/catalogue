@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <title>Catalogue Pro</title>
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#007bff">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Catalogue">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    
+    <style>
+        /* --- DESIGN GÉNÉRAL --- */
+        body { 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            margin: 0; 
+            background-color: #f4f6f8; 
+            color: #333;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* --- BARRE DE RECHERCHE FIXE --- */
+        header {
+            position: fixed; 
+            top: 0; left: 0; right: 0;
+            background: white; 
+            padding: 15px;
+            padding-top: calc(15px + env(safe-area-inset-top)); /* Gère l'encoche iPhone */
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+            z-index: 1000; 
+            text-align: center;
+        }
+
+        #search-input {
+            width: 90%; 
+            max-width: 600px;
+            padding: 16px 24px; 
+            font-size: 22px; /* Barre de saisie large */
+            border: 2px solid #dfe1e5; 
+            border-radius: 50px;
+            outline: none; 
+            background: #f1f3f4;
+            transition: all 0.3s;
+        }
+        #search-input:focus { 
+            border-color: #007bff; 
+            background: #fff;
+            box-shadow: 0 1px 6px rgba(32,33,36,0.28);
+        }
+
+        /* --- GRILLE DE RÉSULTATS --- */
+        #results-container {
+            margin-top: 130px; /* Espace suffisant pour le header */
+            padding: 15px;
+            padding-bottom: 100px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); 
+            gap: 25px;
+        }
+
+        /* --- CARTE PRODUIT --- */
+        .card {
+            background: white; 
+            border-radius: 16px;
+            overflow: hidden; 
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            display: flex; 
+            flex-direction: column; 
+            text-align: left;
+            border: 1px solid #eee;
+        }
+
+        /* --- IMAGE --- */
+        .card-img {
+            width: 100%; 
+            height: 250px;
+            object-fit: contain; 
+            margin-bottom: 20px; 
+            border-bottom: 1px solid #f8f9fa;
+        }
+
+        /* --- TEXTES (TAILLES DEMANDÉES) --- */
+        .info-line {
+            margin-bottom: 10px; 
+            line-height: 1.4;
+        }
+        
+        /* NOM (24px) */
+        .p-name { 
+            font-size: 24px; 
+            font-weight: 800; 
+            color: #000;
+        }
+
+        /* MARQUE & CONDITIONNEMENT (20px) */
+        .p-brand, .p-details { 
+            font-size: 20px; 
+            color: #444; 
+            font-weight: 500;
+        }
+
+        /* RÉFÉRENCE (32px GRAS) */
+        .p-ref-container {
+            margin: 15px 0;
+        }
+        .p-ref { 
+            font-family: 'Courier New', Courier, monospace;
+            background: #f8d7da; /* Fond léger rouge/gris */
+            color: #dc3545;     /* Rouge prononcé */
+            padding: 8px 15px; 
+            border-radius: 8px; 
+            font-size: 32px; 
+            font-weight: 900;    
+            display: inline-block;
+            border: 2px solid #dc3545;
+        }
+
+        .loading { text-align: center; margin-top: 150px; color: #888; font-size: 22px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <input type="text" id="search-input" placeholder="Rechercher un produit..." autofocus>
+</header>
+
+<div id="results-container">
+    <div class="loading">Chargement du catalogue...</div>
+</div>
+
+<script>
+    // === 1. ENREGISTREMENT DU SERVICE WORKER (CRUCIAL POUR PLEIN ÉCRAN) ===
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js')
+            .then(reg => console.log('SW enregistré !'))
+            .catch(err => console.error('Erreur SW:', err));
+        });
+    }
+
+    let allProducts = [];
+    const container = document.getElementById('results-container');
+    const input = document.getElementById('search-input');
+
+    // === 2. CHARGEMENT DES DONNÉES CSV ===
+    Papa.parse("base.csv", {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+            allProducts = results.data;
+            container.innerHTML = "";
+            displayProducts(allProducts);
+        },
+        error: function() {
+            container.innerHTML = "<div class='loading' style='color:red'>Erreur: base.csv introuvable.</div>";
+        }
+    });
+
+    // === 3. NORMALISATION (Accents/Majuscules) ===
+    function normalize(str) {
+        if(!str) return "";
+        return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    }
+
+    // === 4. AFFICHAGE DES CARTES ===
+    function displayProducts(products) {
+        // On limite à 40 pour la fluidité, le reste s'affiche en cherchant
+        const displayLimit = products.length > 40 ? 40 : products.length;
+        
+        if(products.length === 0) {
+            container.innerHTML = "<p style='text-align:center; width:100%; font-size:22px;'>Aucun résultat.</p>";
+            return;
+        }
+
+        let html = "";
+        for (let i = 0; i < displayLimit; i++) {
+            const p = products[i];
+            const nom = p['Nom'] || "-";
+            const marque = p['Marque'] || "-";
+            const pays = p['Pays'] || "";
+            const ref = p['Référence'] || "000000";
+            const cond = p['Conditionnement'] || "-";
+            const imgSrc = `images/${ref}.jpg`;
+
+            html += `
+            <div class="card">
+                <img src="${imgSrc}" class="card-img" onerror="this.src='https://via.placeholder.com/300x300?text=Pas+d+image'">
+                <div class="info-line p-name">${nom}</div>
+                <div class="info-line p-brand">${marque} <span style="font-weight:normal; font-size:18px">(${pays})</span></div>
+                <div class="p-ref-container">
+                    <span class="p-ref">${ref}</span>
+                </div>
+                <div class="info-line p-details">Cond: ${cond}</div>
+            </div>`;
+        }
+        container.innerHTML = html;
+    }
+
+    // === 5. RECHERCHE AVEC REMONTÉE AUTOMATIQUE ===
+    input.addEventListener('input', (e) => {
+        // Remonte en haut dès qu'on tape une lettre
+        window.scrollTo({top: 0, behavior: 'smooth'}); 
+
+        const query = normalize(e.target.value);
+        const terms = query.split(" ").filter(t => t.length > 0);
+
+        if (terms.length === 0) {
+            displayProducts(allProducts);
+            return;
+        }
+
+        const filtered = allProducts.filter(p => {
+            const productString = normalize(`${p['Nom']} ${p['Marque']} ${p['Référence']} ${p['Pays']}`);
+            return terms.every(term => productString.includes(term));
+        });
+
+        displayProducts(filtered);
+    });
+</script>
+
+</body>
+</html>
