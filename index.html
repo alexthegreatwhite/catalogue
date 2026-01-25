@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Paris Store</title>
+    <title>Catalogue Paris Store</title>
 
-    <link rel="manifest" href="site.webmanifest?v=3">
+    <link rel="manifest" href="manifest.json?v=4">
+    
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
     
@@ -16,21 +17,97 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     
     <style>
-        body { font-family: 'Segoe UI', Roboto, sans-serif; margin: 0; background-color: #f4f6f8; color: #333; -webkit-tap-highlight-color: transparent; }
-        header { position: fixed; top: 0; left: 0; right: 0; background: white; padding: 10px; padding-top: calc(10px + env(safe-area-inset-top)); box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; display: flex; justify-content: center; }
-        .search-container { position: relative; width: 95%; max-width: 600px; }
-        #search-input { width: 100%; padding: 15px 20px; padding-right: 50px; font-size: 20px; border: 2px solid #dfe1e5; border-radius: 50px; outline: none; background: #f1f3f4; box-sizing: border-box; transition: all 0.3s; z-index: 1; }
-        #search-input:focus { border-color: #007bff; background: #fff; }
-        #clear-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; line-height: 40px; text-align: center; font-size: 28px; color: #999; cursor: pointer; z-index: 100; display: none; background: transparent; border-radius: 50%; }
-        #results-container { margin-top: 120px; padding: 15px; padding-bottom: 50px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; }
-        .card { background: white; border-radius: 16px; overflow: hidden; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); display: flex; flex-direction: column; border: 1px solid #eee; }
-        .card-img { width: 100%; height: 250px; object-fit: contain; margin-bottom: 20px; border-bottom: 1px solid #f8f9fa; background-color: #f9f9f9; }
+        /* --- DESIGN GÉNÉRAL --- */
+        body { 
+            font-family: 'Segoe UI', Roboto, sans-serif; 
+            margin: 0; background-color: #f4f6f8; color: #333;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* --- HEADER FIXE --- */
+        header {
+            position: fixed; top: 0; left: 0; right: 0;
+            background: white; 
+            padding: 10px;
+            padding-top: calc(10px + env(safe-area-inset-top));
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            z-index: 1000; 
+            display: flex; justify-content: center;
+        }
+
+        /* --- BARRE DE RECHERCHE --- */
+        .search-container {
+            position: relative;
+            width: 95%;
+            max-width: 600px;
+        }
+
+        #search-input {
+            width: 100%; 
+            padding: 15px 20px; 
+            padding-right: 50px; /* Place pour la croix */
+            font-size: 20px; 
+            border: 2px solid #dfe1e5; 
+            border-radius: 50px;
+            outline: none; 
+            background: #f1f3f4;
+            box-sizing: border-box; 
+            transition: all 0.3s;
+            z-index: 1; 
+        }
+        #search-input:focus { 
+            border-color: #007bff; background: #fff;
+        }
+
+        /* --- CROIX DE SUPPRESSION --- */
+        #clear-btn {
+            position: absolute;
+            right: 10px; top: 50%; transform: translateY(-50%);
+            width: 40px; height: 40px; 
+            line-height: 40px; text-align: center;
+            font-size: 28px; color: #999;
+            cursor: pointer; z-index: 100;
+            display: none; /* Caché par défaut */
+            background: transparent; border-radius: 50%;
+        }
+        #clear-btn:active { background-color: #eee; color: #333; }
+
+        /* --- LISTE PRODUITS --- */
+        #results-container {
+            margin-top: 120px; 
+            padding: 15px; padding-bottom: 50px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); 
+            gap: 25px;
+        }
+
+        .card {
+            background: white; border-radius: 16px;
+            overflow: hidden; padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            display: flex; flex-direction: column; 
+            border: 1px solid #eee;
+        }
+
+        .card-img {
+            width: 100%; height: 250px;
+            object-fit: contain; margin-bottom: 20px; 
+            border-bottom: 1px solid #f8f9fa;
+            background-color: #f9f9f9; 
+        }
+
         .info-line { margin-bottom: 10px; line-height: 1.4; }
         .p-name { font-size: 24px; font-weight: 800; color: #000; }
         .p-brand, .p-details { font-size: 20px; color: #444; font-weight: 500; }
-        .p-ref { font-family: monospace; background: #f8d7da; color: #dc3545; padding: 8px 15px; border-radius: 8px; font-size: 32px; font-weight: 900; display: inline-block; margin: 10px 0; border: 2px solid #dc3545; }
+        .p-ref { 
+            font-family: monospace; background: #f8d7da; color: #dc3545;
+            padding: 8px 15px; border-radius: 8px; 
+            font-size: 32px; font-weight: 900;    
+            display: inline-block; margin: 10px 0; border: 2px solid #dc3545;
+        }
+
         .loading { text-align: center; margin-top: 150px; color: #888; font-size: 22px; }
-        .version-tag { text-align: center; color: #aaa; font-size: 12px; padding: 20px; width: 100%; grid-column: 1 / -1; }
+        .version-tag { text-align: center; color: #ccc; font-size: 11px; padding: 20px; width: 100%; grid-column: 1 / -1; }
     </style>
 </head>
 <body>
@@ -47,22 +124,21 @@
 </div>
 
 <script>
-    // IMAGE DE SECOURS (Zéro internet requis)
+    // --- 1. IMAGE DE SECOURS (Base64 interne, pas d'internet requis) ---
     const PLACEHOLDER_IMG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkqAcAAIUAgUW0RjgAAAAASUVORK5CYII=";
 
-    // GESTION DU CACHE AGRESSIVE
+    // --- 2. GESTION DU CACHE (FORCER LA MISE A JOUR) ---
     if ('serviceWorker' in navigator) {
-        // 1. On tue tous les anciens Service Workers
+        // On désinscrit tout ce qui traîne pour forcer le propre
         navigator.serviceWorker.getRegistrations().then(function(registrations) {
             for(let registration of registrations) {
                 registration.unregister();
             }
         });
-        
-        // 2. On installe le nouveau avec un tag ?v=3 pour forcer la nouveauté
+        // On réinstalle la version 4
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('sw.js?v=3').then(reg => {
-                console.log('SW V3 installé');
+            navigator.serviceWorker.register('sw.js?v=4').then(reg => {
+                console.log('SW V4 installé');
             });
         });
     }
@@ -72,6 +148,7 @@
     const input = document.getElementById('search-input');
     const clearBtn = document.getElementById('clear-btn');
 
+    // --- 3. CHARGEMENT DONNÉES ---
     Papa.parse("base.csv", {
         download: true, header: true, skipEmptyLines: true,
         complete: function(results) {
@@ -86,6 +163,7 @@
         return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     }
 
+    // --- 4. AFFICHAGE ---
     function displayProducts(products) {
         const displayLimit = products.length > 40 ? 40 : products.length;
         if(products.length === 0) {
@@ -95,8 +173,12 @@
         let html = "";
         for (let i = 0; i < displayLimit; i++) {
             const p = products[i];
+            
+            // Correction des "0" manquants (Excel)
             let refRaw = p['Référence'] || "000000";
             let refFormatted = refRaw.toString().padStart(6, '0');
+            
+            // Lien image
             const imgSrc = `images/${refFormatted}.webp`;
 
             html += `
@@ -108,15 +190,17 @@
                 <div class="info-line p-details">Cond: ${p['Conditionnement'] || "-"}</div>
             </div>`;
         }
-        // LE MOUCHARD : Affiche la version tout en bas
-        html += `<div class="version-tag">Version 3.0 - Cache Reset</div>`;
-        
+        // Marqueur de version visible
+        html += `<div class="version-tag">Version 4.0 - Plein écran & Fix</div>`;
         container.innerHTML = html;
     }
 
+    // --- 5. LOGIQUE RECHERCHE ET CROIX ---
     function performSearch() {
         window.scrollTo({top: 0, behavior: 'instant'});
         const query = normalize(input.value);
+        
+        // Affiche la croix si on écrit
         if (query.length > 0) { clearBtn.style.display = "block"; } 
         else { clearBtn.style.display = "none"; }
 
@@ -131,6 +215,7 @@
     }
 
     input.addEventListener('input', performSearch);
+    
     clearBtn.addEventListener('click', (e) => {
         e.preventDefault();
         input.value = "";
