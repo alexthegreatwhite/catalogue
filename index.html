@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Catalogue Paris Store</title>
 
-    <link rel="manifest" href="site.webmanifest">
+    <link rel="manifest" href="site.webmanifest?v=3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
     
@@ -22,7 +22,7 @@
         #search-input { width: 100%; padding: 15px 20px; padding-right: 50px; font-size: 20px; border: 2px solid #dfe1e5; border-radius: 50px; outline: none; background: #f1f3f4; box-sizing: border-box; transition: all 0.3s; z-index: 1; }
         #search-input:focus { border-color: #007bff; background: #fff; }
         #clear-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; line-height: 40px; text-align: center; font-size: 28px; color: #999; cursor: pointer; z-index: 100; display: none; background: transparent; border-radius: 50%; }
-        #results-container { margin-top: 120px; padding: 15px; padding-bottom: 100px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; }
+        #results-container { margin-top: 120px; padding: 15px; padding-bottom: 50px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; }
         .card { background: white; border-radius: 16px; overflow: hidden; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); display: flex; flex-direction: column; border: 1px solid #eee; }
         .card-img { width: 100%; height: 250px; object-fit: contain; margin-bottom: 20px; border-bottom: 1px solid #f8f9fa; background-color: #f9f9f9; }
         .info-line { margin-bottom: 10px; line-height: 1.4; }
@@ -30,6 +30,7 @@
         .p-brand, .p-details { font-size: 20px; color: #444; font-weight: 500; }
         .p-ref { font-family: monospace; background: #f8d7da; color: #dc3545; padding: 8px 15px; border-radius: 8px; font-size: 32px; font-weight: 900; display: inline-block; margin: 10px 0; border: 2px solid #dc3545; }
         .loading { text-align: center; margin-top: 150px; color: #888; font-size: 22px; }
+        .version-tag { text-align: center; color: #aaa; font-size: 12px; padding: 20px; width: 100%; grid-column: 1 / -1; }
     </style>
 </head>
 <body>
@@ -46,22 +47,22 @@
 </div>
 
 <script>
-    // === 1. IMAGE DE SECOURS (Base64 pour éviter l'appel internet) ===
+    // IMAGE DE SECOURS (Zéro internet requis)
     const PLACEHOLDER_IMG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkqAcAAIUAgUW0RjgAAAAASUVORK5CYII=";
 
-    // === 2. GESTION DU CACHE (SERVICE WORKER) ===
-    // On force la mise à jour pour que le téléphone arrête d'utiliser la vieille version
+    // GESTION DU CACHE AGRESSIVE
     if ('serviceWorker' in navigator) {
+        // 1. On tue tous les anciens Service Workers
         navigator.serviceWorker.getRegistrations().then(function(registrations) {
             for(let registration of registrations) {
-                // On désinscrit l'ancien pour forcer le rechargement
                 registration.unregister();
             }
         });
-        // On réinstalle le nouveau
+        
+        // 2. On installe le nouveau avec un tag ?v=3 pour forcer la nouveauté
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('sw.js').then(reg => {
-                console.log('Nouveau SW installé');
+            navigator.serviceWorker.register('sw.js?v=3').then(reg => {
+                console.log('SW V3 installé');
             });
         });
     }
@@ -101,13 +102,15 @@
             html += `
             <div class="card">
                 <img src="${imgSrc}" class="card-img" onerror="this.onerror=null;this.src='${PLACEHOLDER_IMG}'">
-                
                 <div class="info-line p-name">${p['Nom'] || "-"}</div>
                 <div class="info-line p-brand">${p['Marque'] || "-"} (${p['Pays'] || ""})</div>
                 <div><span class="p-ref">${refFormatted}</span></div>
                 <div class="info-line p-details">Cond: ${p['Conditionnement'] || "-"}</div>
             </div>`;
         }
+        // LE MOUCHARD : Affiche la version tout en bas
+        html += `<div class="version-tag">Version 3.0 - Cache Reset</div>`;
+        
         container.innerHTML = html;
     }
 
