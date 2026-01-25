@@ -3,61 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    
     <title>Catalogue Paris Store</title>
 
-    <link rel="manifest" href="./manifest.json">
-    <link rel="apple-touch-icon" href="apple-touch-icon.png">
-    <link rel="icon" type="image/png" href="web-app-manifest-192x192.png">
+    <link rel="manifest" href="site.webmanifest">
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
     
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#007bff">
+    <meta name="theme-color" content="#ffffff">
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     
     <style>
         /* --- DESIGN GÉNÉRAL --- */
         body { 
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
-            margin: 0; 
-            background-color: #f4f6f8; 
-            color: #333;
+            font-family: 'Segoe UI', Roboto, sans-serif; 
+            margin: 0; background-color: #f4f6f8; color: #333;
             -webkit-tap-highlight-color: transparent;
         }
         
-        /* --- BARRE DE RECHERCHE FIXE --- */
+        /* --- BARRE DE RECHERCHE (NOUVEAU DESIGN) --- */
         header {
-            position: fixed; 
-            top: 0; left: 0; right: 0;
+            position: fixed; top: 0; left: 0; right: 0;
             background: white; 
-            padding: 15px;
-            padding-top: calc(15px + env(safe-area-inset-top)); /* Espace pour l'encoche iPhone */
-            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+            padding: 10px;
+            padding-top: calc(10px + env(safe-area-inset-top));
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             z-index: 1000; 
-            text-align: center;
+            display: flex; justify-content: center;
+        }
+
+        /* Conteneur pour superposer la croix sur l'input */
+        .search-container {
+            position: relative;
+            width: 95%;
+            max-width: 600px;
         }
 
         #search-input {
-            width: 90%; 
-            max-width: 600px;
-            padding: 16px 24px; 
-            font-size: 22px; /* Gros texte de saisie */
+            width: 100%; 
+            padding: 15px 20px; 
+            padding-right: 50px; /* Place pour la croix */
+            font-size: 20px; 
             border: 2px solid #dfe1e5; 
             border-radius: 50px;
             outline: none; 
             background: #f1f3f4;
+            box-sizing: border-box; /* Important pour ne pas dépasser */
             transition: all 0.3s;
         }
         #search-input:focus { 
-            border-color: #007bff; 
-            background: #fff;
-            box-shadow: 0 1px 6px rgba(32,33,36,0.28);
+            border-color: #007bff; background: #fff;
         }
 
-        /* --- GRILLE DE RÉSULTATS --- */
+        /* LA CROIX DE SUPPRESSION */
+        #clear-btn {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 24px;
+            color: #999;
+            cursor: pointer;
+            padding: 5px; /* Zone de clic plus large */
+            display: none; /* Caché par défaut */
+        }
+        #clear-btn:hover { color: #333; }
+
+        /* --- GRILLE --- */
         #results-container {
-            margin-top: 130px; 
+            margin-top: 120px; 
             padding: 15px;
             padding-bottom: 100px;
             display: grid;
@@ -65,49 +82,28 @@
             gap: 25px;
         }
 
-        /* --- CARTE PRODUIT --- */
         .card {
-            background: white; 
-            border-radius: 16px;
-            overflow: hidden; 
-            padding: 20px;
+            background: white; border-radius: 16px;
+            overflow: hidden; padding: 20px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-            display: flex; 
-            flex-direction: column; 
-            text-align: left;
+            display: flex; flex-direction: column; 
             border: 1px solid #eee;
         }
 
-        /* --- IMAGE --- */
         .card-img {
-            width: 100%; 
-            height: 250px;
-            object-fit: contain; 
-            margin-bottom: 20px; 
+            width: 100%; height: 250px;
+            object-fit: contain; margin-bottom: 20px; 
             border-bottom: 1px solid #f8f9fa;
         }
 
-        /* --- TEXTES AGRANDIS --- */
         .info-line { margin-bottom: 10px; line-height: 1.4; }
-        
-        /* NOM (24px) */
         .p-name { font-size: 24px; font-weight: 800; color: #000; }
-
-        /* MARQUE & CONDITIONNEMENT (20px) */
         .p-brand, .p-details { font-size: 20px; color: #444; font-weight: 500; }
-
-        /* RÉFÉRENCE (32px GRAS) */
         .p-ref { 
-            font-family: 'Courier New', Courier, monospace;
-            background: #f8d7da; 
-            color: #dc3545;
-            padding: 8px 15px; 
-            border-radius: 8px; 
-            font-size: 32px; 
-            font-weight: 900;    
-            display: inline-block;
-            border: 2px solid #dc3545;
-            margin: 10px 0;
+            font-family: monospace; background: #f8d7da; color: #dc3545;
+            padding: 8px 15px; border-radius: 8px; 
+            font-size: 32px; font-weight: 900;    
+            display: inline-block; margin: 10px 0; border: 2px solid #dc3545;
         }
 
         .loading { text-align: center; margin-top: 150px; color: #888; font-size: 22px; }
@@ -116,15 +112,18 @@
 <body>
 
 <header>
-    <input type="text" id="search-input" placeholder="Rechercher un produit..." autofocus>
+    <div class="search-container">
+        <input type="text" id="search-input" placeholder="Rechercher..." autofocus>
+        <span id="clear-btn">&times;</span>
+    </div>
 </header>
 
 <div id="results-container">
-    <div class="loading">Chargement du catalogue...</div>
+    <div class="loading">Chargement...</div>
 </div>
 
 <script>
-    // 1. Activation du Service Worker (pour le mode installable)
+    // --- SERVICE WORKER ---
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('sw.js').catch(err => console.log('Erreur SW:', err));
@@ -134,47 +133,37 @@
     let allProducts = [];
     const container = document.getElementById('results-container');
     const input = document.getElementById('search-input');
+    const clearBtn = document.getElementById('clear-btn');
 
-    // 2. Chargement du fichier CSV
+    // --- CHARGEMENT ---
     Papa.parse("base.csv", {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
+        download: true, header: true, skipEmptyLines: true,
         complete: function(results) {
             allProducts = results.data;
             container.innerHTML = "";
             displayProducts(allProducts);
-        },
-        error: function() {
-            container.innerHTML = "<div class='loading' style='color:red'>Erreur: base.csv introuvable ou vide.</div>";
         }
     });
 
-    // 3. Normalisation (enlève accents et majuscules)
     function normalize(str) {
         if(!str) return "";
         return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     }
 
-    // 4. Affichage des produits
+    // --- AFFICHAGE ---
     function displayProducts(products) {
-        // Affiche les 40 premiers pour garder de la fluidité
         const displayLimit = products.length > 40 ? 40 : products.length;
         
         if(products.length === 0) {
-            container.innerHTML = "<p style='text-align:center; width:100%; font-size:22px;'>Aucun résultat.</p>";
+            container.innerHTML = "<p style='text-align:center;width:100%;font-size:22px;'>Aucun résultat.</p>";
             return;
         }
 
         let html = "";
         for (let i = 0; i < displayLimit; i++) {
             const p = products[i];
-            
-            // Correction du format de référence (force 6 chiffres avec des zéros devant)
             let refRaw = p['Référence'] || "000000";
             let refFormatted = refRaw.toString().padStart(6, '0');
-            
-            // On pointe vers le dossier "images" et l'extension ".webp"
             const imgSrc = `images/${refFormatted}.webp`;
 
             html += `
@@ -189,26 +178,40 @@
         container.innerHTML = html;
     }
 
-    // 5. Moteur de recherche + Scroll vers le haut automatique
-    input.addEventListener('input', (e) => {
-        // On remonte tout en haut dès qu'on tape
-        window.scrollTo({top: 0, behavior: 'instant'}); 
-
-        const query = normalize(e.target.value);
-        const terms = query.split(" ").filter(t => t.length > 0);
-
-        if (terms.length === 0) {
-            displayProducts(allProducts);
-            return;
+    // --- RECHERCHE ET CROIX ---
+    
+    // Fonction qui lance la recherche
+    function performSearch() {
+        window.scrollTo({top: 0, behavior: 'instant'});
+        const query = normalize(input.value);
+        
+        // Gérer la visibilité de la croix
+        if (query.length > 0) {
+            clearBtn.style.display = "block";
+        } else {
+            clearBtn.style.display = "none";
         }
+
+        const terms = query.split(" ").filter(t => t.length > 0);
+        if (terms.length === 0) { displayProducts(allProducts); return; }
 
         const filtered = allProducts.filter(p => {
             const productString = normalize(`${p['Nom']} ${p['Marque']} ${p['Référence']} ${p['Pays']}`);
             return terms.every(term => productString.includes(term));
         });
-
         displayProducts(filtered);
+    }
+
+    // Écouteur sur la frappe
+    input.addEventListener('input', performSearch);
+
+    // Écouteur sur la croix
+    clearBtn.addEventListener('click', () => {
+        input.value = "";       // Vide le champ
+        input.focus();          // Remet le curseur dedans
+        performSearch();        // Relance la recherche (pour tout réafficher)
     });
+
 </script>
 
 </body>
