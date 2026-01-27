@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Catalogue Paris Store</title>
+    <title>Paris Store</title>
 
-    <link rel="manifest" href="manifest.json?v=20">
+    <link rel="manifest" href="manifest.json?v=18">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -21,25 +21,28 @@
         header { position: fixed; top: 0; left: 0; right: 0; background: white; padding: 10px; padding-top: calc(10px + env(safe-area-inset-top)); box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; display: flex; justify-content: center; }
         .search-container { position: relative; width: 95%; max-width: 600px; }
         #search-input { width: 100%; padding: 15px 20px; padding-right: 50px; font-size: 20px; border: 2px solid #dfe1e5; border-radius: 50px; outline: none; background: #f1f3f4; box-sizing: border-box; transition: all 0.3s; z-index: 1; }
-        #clear-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; line-height: 40px; text-align: center; font-size: 28px; color: #999; cursor: pointer; z-index: 100; display: none; background: transparent; }
+        #search-input:focus { border-color: #007bff; background: #fff; }
+        #clear-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; line-height: 40px; text-align: center; font-size: 28px; color: #999; cursor: pointer; z-index: 100; display: none; background: transparent; border-radius: 50%; }
 
         #results-container { margin-top: 100px; padding: 15px; padding-bottom: 50px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; }
         .card { background: white; border-radius: 16px; overflow: hidden; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); display: flex; flex-direction: column; border: 1px solid #eee; }
-        
-        /* Image avec gestion d'erreur visuelle */
-        .card-img { width: 100%; height: 250px; object-fit: contain; margin-bottom: 15px; border-bottom: 1px solid #f8f9fa; background-color: #f9f9f9; display: block; }
-        .img-error { display: none; height: 250px; background: #f0f0f0; color: red; text-align: center; padding-top: 100px; font-weight: bold; font-size: 12px; }
-
+        .card-img { width: 100%; height: 250px; object-fit: contain; margin-bottom: 15px; border-bottom: 1px solid #f8f9fa; background-color: #f9f9f9; }
         .info-line { margin-bottom: 8px; line-height: 1.4; }
         .p-name { font-size: 24px; font-weight: 800; color: #000; }
         .p-brand, .p-details { font-size: 20px; color: #444; font-weight: 500; }
         
-        /* Flexbox Code + Barres */
+        /* DESIGN FLEX CODE + BARRE */
         .ref-row { display: flex; align-items: center; gap: 15px; margin: 10px 0; }
-        .p-ref { font-family: monospace; background: #f8d7da; color: #dc3545; padding: 8px 15px; border-radius: 8px; font-size: 32px; font-weight: 900; border: 2px solid #dc3545; flex-shrink: 0; }
+        .p-ref { 
+            font-family: monospace; background: #f8d7da; color: #dc3545;
+            padding: 8px 15px; border-radius: 8px; 
+            font-size: 32px; font-weight: 900;    
+            border: 2px solid #dc3545;
+            flex-shrink: 0;
+        }
         .barcode { height: 55px; width: auto; max-width: 100%; }
 
-        /* Footer */
+        /* FOOTER */
         .footer-area { grid-column: 1 / -1; text-align: center; margin-top: 40px; margin-bottom: 20px; }
         .download-link { font-size: 11px; color: #999; text-decoration: underline; cursor: pointer; border: none; background: none; padding: 10px; }
         #progress-container { width: 60%; margin: 10px auto; display: none; }
@@ -65,6 +68,8 @@
 <div id="update-toast">Mise à jour installée...</div>
 
 <script>
+    const PLACEHOLDER_IMG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkqAcAAIUAgUW0RjgAAAAASUVORK5CYII=";
+
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('sw.js').then(reg => {
@@ -92,7 +97,7 @@
         const pContainer = document.getElementById('progress-container');
         const pFill = document.getElementById('progress-fill');
         const pText = document.getElementById('progress-text');
-        if (!confirm("Télécharger toutes les images ?")) return;
+        if (!confirm("Télécharger toutes les images pour l'accès hors ligne ?")) return;
         btn.style.display = 'none'; pContainer.style.display = 'block';
         let count = 0; const total = allProducts.length;
         for (const p of allProducts) {
@@ -164,17 +169,9 @@
             let refFormatted = refRaw.toString().trim().replace(/\s/g, '').padStart(6, '0');
             const imgSrc = `images/${refFormatted}.webp`;
 
-            // On crée un ID unique pour chaque image pour gérer l'erreur
-            const imgId = `img-${i}`;
-            const errId = `err-${i}`;
-
             html += `
             <div class="card">
-                <img id="${imgId}" src="${imgSrc}" class="card-img" onerror="document.getElementById('${imgId}').style.display='none'; document.getElementById('${errId}').style.display='block';">
-                <div id="${errId}" class="img-error">
-                    Image introuvable :<br>${refFormatted}.webp
-                </div>
-
+                <img src="${imgSrc}" class="card-img" onerror="this.onerror=null;this.src='${PLACEHOLDER_IMG}'">
                 <div class="info-line p-name">${nom}</div>
                 <div class="info-line p-brand">${marque} (${pays})</div>
                 
@@ -202,11 +199,12 @@
                 <div id="progress-bar"><div id="progress-fill"></div></div>
                 <div id="progress-text">0%</div>
             </div>
-            <div class="version-tag">Version 20 - Diagnostic</div>
+            <div class="version-tag">Version 18 - Code Barre Droite</div>
         </div>`;
         
         container.innerHTML = html;
-        if (typeof JsBarcode !== 'undefined') { try { JsBarcode(".barcode").init(); } catch(e) {} }
+        
+        try { JsBarcode(".barcode").init(); } catch(e) {}
     }
 
     function performSearch() {

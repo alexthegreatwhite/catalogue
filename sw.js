@@ -1,4 +1,4 @@
-const CACHE_NAME = 'paris-store-v20'; // Changement de version OBLIGATOIRE
+const CACHE_NAME = 'paris-store-v18'; // On revient à la v18
 
 const ASSETS_TO_CACHE = [
   './',
@@ -12,67 +12,40 @@ const ASSETS_TO_CACHE = [
 ];
 
 self.addEventListener('install', (event) => {
-  self.skipWaiting(); // Force l'activation immédiate
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
-  );
+  self.skipWaiting();
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE)));
 });
 
 self.addEventListener('activate', (event) => {
-  // NETTOYAGE AGRESSIF : On supprime TOUT ce qui n'est pas la v20
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            console.log("Suppression vieux cache:", cache);
-            return caches.delete(cache);
-          }
-        })
-      );
-    })
-  );
+  event.waitUntil(caches.keys().then((keys) => Promise.all(keys.map((k) => k !== CACHE_NAME && caches.delete(k)))));
   self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
-
-  // 1. Gestion CSV (Réseau d'abord)
+  
+  // 1. CSV : Réseau d'abord
   if (url.pathname.endsWith('base.csv')) {
     event.respondWith(
-      fetch(event.request).then(response => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        return response;
-      }).catch(() => caches.match(event.request))
+      fetch(event.request).then(res => 
+        caches.open(CACHE_NAME).then(cache => { cache.put(event.request, res.clone()); return res; })
+      ).catch(() => caches.match(event.request))
     );
     return;
   }
-
-  // 2. Gestion IMAGES (Cache d'abord, mais INTELLIGENT)
+  
+  // 2. Images : Cache d'abord + Sauvegarde auto
   if (url.pathname.includes('/images/')) {
     event.respondWith(
-      caches.match(event.request).then((response) => {
-        if (response) return response; // Si c'est en cache, on rend.
-        
-        return fetch(event.request).then((networkResponse) => {
-            // SÉCURITÉ : On ne met en cache que si l'image existe vraiment (Code 200)
-            // Ça évite de stocker des "Erreurs 404"
-            if (!networkResponse || networkResponse.status !== 200) {
-                return networkResponse;
-            }
-            const clone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-            return networkResponse;
-        });
-      })
+      caches.match(event.request).then(res => 
+        res || fetch(event.request).then(netRes => 
+          caches.open(CACHE_NAME).then(cache => { cache.put(event.request, netRes.clone()); return netRes; })
+        )
+      )
     );
     return;
   }
 
-  // 3. Le reste
-  event.respondWith(
-    caches.match(event.request).then(response => response || fetch(event.request))
-  );
+  // 3. Le reste : Cache d'abord
+  event.respondWith(caches.match(event.request).then(res => res || fetch(event.request)));
 });
