@@ -1,4 +1,4 @@
-const CACHE_NAME = 'paris-store-v16'; // Nouvelle version v16
+const CACHE_NAME = 'paris-store-v17'; // Nouvelle version v17
 
 const ASSETS_TO_CACHE = [
   './',
