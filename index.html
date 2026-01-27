@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Catalogue Paris Store</title>
 
-    <link rel="manifest" href="manifest.json?v=4">
+    <link rel="manifest" href="manifest.json?v=5">
     
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
@@ -17,7 +17,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     
     <style>
-        /* --- DESIGN GÃ‰NÃ‰RAL --- */
+        /* --- DESIGN GÉNÉRAL --- */
         body { 
             font-family: 'Segoe UI', Roboto, sans-serif; 
             margin: 0; background-color: #f4f6f8; color: #333;
@@ -38,14 +38,13 @@
         /* --- BARRE DE RECHERCHE --- */
         .search-container {
             position: relative;
-            width: 95%;
-            max-width: 600px;
+            width: 95%; max-width: 600px;
         }
 
         #search-input {
             width: 100%; 
             padding: 15px 20px; 
-            padding-right: 50px; /* Place pour la croix */
+            padding-right: 50px; /* Espace pour la croix */
             font-size: 20px; 
             border: 2px solid #dfe1e5; 
             border-radius: 50px;
@@ -67,12 +66,12 @@
             line-height: 40px; text-align: center;
             font-size: 28px; color: #999;
             cursor: pointer; z-index: 100;
-            display: none; /* CachÃ© par dÃ©faut */
+            display: none; /* Caché par défaut */
             background: transparent; border-radius: 50%;
         }
         #clear-btn:active { background-color: #eee; color: #333; }
 
-        /* --- LISTE PRODUITS --- */
+        /* --- GRILLE PRODUITS --- */
         #results-container {
             margin-top: 120px; 
             padding: 15px; padding-bottom: 50px;
@@ -107,7 +106,7 @@
         }
 
         .loading { text-align: center; margin-top: 150px; color: #888; font-size: 22px; }
-        .version-tag { text-align: center; color: #ccc; font-size: 11px; padding: 20px; width: 100%; grid-column: 1 / -1; }
+        .version-tag { text-align: center; color: #bbb; font-size: 11px; padding: 20px; width: 100%; grid-column: 1 / -1; }
     </style>
 </head>
 <body>
@@ -124,22 +123,42 @@
 </div>
 
 <script>
-    // --- 1. IMAGE DE SECOURS (Base64 interne, pas d'internet requis) ---
+    // === 1. IMAGE DE SECOURS (Base64) ===
+    // Évite les erreurs "ERR_NAME_NOT_RESOLVED" quand hors ligne
     const PLACEHOLDER_IMG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkqAcAAIUAgUW0RjgAAAAASUVORK5CYII=";
 
-    // --- 2. GESTION DU CACHE (FORCER LA MISE A JOUR) ---
+    // === 2. GESTION SERVICE WORKER (AUTO-UPDATE) ===
     if ('serviceWorker' in navigator) {
-        // On dÃ©sinscrit tout ce qui traÃ®ne pour forcer le propre
-        navigator.serviceWorker.getRegistrations().then(function(registrations) {
-            for(let registration of registrations) {
-                registration.unregister();
-            }
-        });
-        // On rÃ©installe la version 4
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('sw.js?v=4').then(reg => {
-                console.log('SW V4 installÃ©');
+            navigator.serviceWorker.register('sw.js').then(registration => {
+                
+                // Vérifie les mises à jour immédiatement
+                registration.update();
+
+                // Si une nouvelle version est trouvée
+                registration.onupdatefound = () => {
+                    const installingWorker = registration.installing;
+                    installingWorker.onstatechange = () => {
+                        if (installingWorker.state === 'installed') {
+                            if (navigator.serviceWorker.controller) {
+                                console.log('Nouvelle mise à jour disponible !');
+                                window.location.reload(); // Rechargement automatique
+                            }
+                        }
+                    };
+                };
             });
+
+            // Si le contrôleur change, on recharge
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                window.location.reload();
+            });
+        });
+
+        // Quand on récupère internet, on vérifie si une mise à jour est dispo
+        window.addEventListener('online', () => {
+            console.log('En ligne : Vérification mises à jour...');
+            navigator.serviceWorker.ready.then(reg => reg.update());
         });
     }
 
@@ -148,13 +167,16 @@
     const input = document.getElementById('search-input');
     const clearBtn = document.getElementById('clear-btn');
 
-    // --- 3. CHARGEMENT DONNÃ‰ES ---
+    // === 3. CHARGEMENT CSV ===
     Papa.parse("base.csv", {
         download: true, header: true, skipEmptyLines: true,
         complete: function(results) {
             allProducts = results.data;
             container.innerHTML = "";
             displayProducts(allProducts);
+        },
+        error: function() {
+            container.innerHTML = "<p class='loading'>Erreur: base.csv introuvable.</p>";
         }
     });
 
@@ -163,22 +185,22 @@
         return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     }
 
-    // --- 4. AFFICHAGE ---
+    // === 4. AFFICHAGE DES PRODUITS ===
     function displayProducts(products) {
         const displayLimit = products.length > 40 ? 40 : products.length;
         if(products.length === 0) {
-            container.innerHTML = "<p style='text-align:center;width:100%;font-size:22px;'>Aucun rÃ©sultat.</p>";
+            container.innerHTML = "<p style='text-align:center;width:100%;font-size:22px;'>Aucun résultat.</p>";
             return;
         }
         let html = "";
         for (let i = 0; i < displayLimit; i++) {
             const p = products[i];
             
-            // Correction des "0" manquants (Excel)
-            let refRaw = p['RÃ©fÃ©rence'] || "000000";
+            // Formatage référence (ajout des 0 devant)
+            let refRaw = p['Référence'] || "000000";
             let refFormatted = refRaw.toString().padStart(6, '0');
             
-            // Lien image
+            // Lien vers l'image WebP
             const imgSrc = `images/${refFormatted}.webp`;
 
             html += `
@@ -190,17 +212,17 @@
                 <div class="info-line p-details">Cond: ${p['Conditionnement'] || "-"}</div>
             </div>`;
         }
-        // Marqueur de version visible
-        html += `<div class="version-tag">Version 4.0 - Plein Ã©cran & Fix</div>`;
+        // Petit texte discret en bas pour confirmer la version
+        html += `<div class="version-tag">Version Connectée - Auto Update</div>`;
         container.innerHTML = html;
     }
 
-    // --- 5. LOGIQUE RECHERCHE ET CROIX ---
+    // === 5. MOTEUR DE RECHERCHE & CROIX ===
     function performSearch() {
         window.scrollTo({top: 0, behavior: 'instant'});
         const query = normalize(input.value);
-        
-        // Affiche la croix si on Ã©crit
+
+        // Affiche/Cache la croix
         if (query.length > 0) { clearBtn.style.display = "block"; } 
         else { clearBtn.style.display = "none"; }
 
@@ -208,7 +230,7 @@
         if (terms.length === 0) { displayProducts(allProducts); return; }
 
         const filtered = allProducts.filter(p => {
-            const productString = normalize(`${p['Nom']} ${p['Marque']} ${p['RÃ©fÃ©rence']} ${p['Pays']}`);
+            const productString = normalize(`${p['Nom']} ${p['Marque']} ${p['Référence']} ${p['Pays']}`);
             return terms.every(term => productString.includes(term));
         });
         displayProducts(filtered);
@@ -216,6 +238,7 @@
 
     input.addEventListener('input', performSearch);
     
+    // Action clic sur la croix
     clearBtn.addEventListener('click', (e) => {
         e.preventDefault();
         input.value = "";
