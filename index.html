@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Catalogue Paris Store</title>
+    <title>Paris Store</title>
 
-    <link rel="manifest" href="manifest.json?v=6">
+    <link rel="manifest" href="manifest.json?v=8">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -48,22 +48,21 @@
 <script>
     const PLACEHOLDER_IMG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkqAcAAIUAgUW0RjgAAAAASUVORK5CYII=";
 
-    // --- SCRIPT AUTO UPDATE SÉCURISÉ ---
+    // === GESTION DU CACHE ET AUTO-UPDATE ===
     if ('serviceWorker' in navigator) {
+        // 1. On nettoie les vieux caches pour être sûr d'avoir la version propre
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            for(let registration of registrations) {
+                // On désinscrit temporairement pour forcer le rechargement immédiat
+                registration.unregister();
+            }
+        });
+
+        // 2. On réinstalle proprement
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('sw.js')
-            .then(registration => {
-                console.log('SW Registered');
-                registration.onupdatefound = () => {
-                    const installingWorker = registration.installing;
-                    installingWorker.onstatechange = () => {
-                        if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            window.location.reload();
-                        }
-                    };
-                };
-            })
-            .catch(err => console.log('SW Echec:', err)); // Si ça plante, ça log juste l'erreur
+            navigator.serviceWorker.register('sw.js?v=8').then(registration => {
+                console.log('SW enregistré');
+            });
         });
     }
 
@@ -72,17 +71,19 @@
     const input = document.getElementById('search-input');
     const clearBtn = document.getElementById('clear-btn');
 
+    // === CHARGEMENT CSV SPÉCIAL POINT-VIRGULE ===
     Papa.parse("base.csv", {
-        download: true, header: true, skipEmptyLines: true,
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        delimiter: ";", // <--- C'EST LA QUE TOUT SE JOUE !
         complete: function(results) {
             allProducts = results.data;
-            if (results.errors.length > 0) console.log("Erreurs CSV:", results.errors);
             container.innerHTML = "";
             displayProducts(allProducts);
         },
         error: function(err) {
-            container.innerHTML = "<p class='loading'>Erreur chargement CSV (vérifier connexion).</p>";
-            console.log(err);
+            container.innerHTML = "<p class='loading'>Erreur lecture CSV.</p>";
         }
     });
 
@@ -100,8 +101,11 @@
         let html = "";
         for (let i = 0; i < displayLimit; i++) {
             const p = products[i];
-            let refRaw = p['Référence'] || "000000";
-            let refFormatted = refRaw.toString().padStart(6, '0');
+            
+            // On gère les noms de colonnes même s'il y a des petites erreurs
+            let refRaw = p['Référence'] || p['Reference'] || "000000";
+            let refFormatted = refRaw.toString().replace(/\s/g, '').padStart(6, '0'); // On enlève aussi les espaces cachés
+            
             const imgSrc = `images/${refFormatted}.webp`;
 
             html += `
@@ -113,7 +117,7 @@
                 <div class="info-line p-details">Cond: ${p['Conditionnement'] || "-"}</div>
             </div>`;
         }
-        html += `<div class="version-tag">Version Réparée - v6</div>`;
+        html += `<div class="version-tag">Version Finale - Mode Point-Virgule</div>`;
         container.innerHTML = html;
     }
 
