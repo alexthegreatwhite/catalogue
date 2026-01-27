@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Catalogue Paris Store</title>
+    <title>Paris Store</title>
 
-    <link rel="manifest" href="manifest.json?v=11">
+    <link rel="manifest" href="manifest.json?v=13">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -30,6 +30,13 @@
         .p-ref { font-family: monospace; background: #f8d7da; color: #dc3545; padding: 8px 15px; border-radius: 8px; font-size: 32px; font-weight: 900; display: inline-block; margin: 10px 0; border: 2px solid #dc3545; }
         .loading { text-align: center; margin-top: 150px; color: #888; font-size: 22px; }
         .version-tag { text-align: center; color: #bbb; font-size: 11px; padding: 20px; width: 100%; grid-column: 1 / -1; }
+        
+        /* Petit popup de mise à jour (discret) */
+        #update-toast {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: #333; color: white; padding: 10px 20px; border-radius: 30px;
+            font-size: 14px; z-index: 2000; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
     </style>
 </head>
 <body>
@@ -45,23 +52,28 @@
     <div class="loading">Chargement...</div>
 </div>
 
+<div id="update-toast">Mise à jour installée...</div>
+
 <script>
     const PLACEHOLDER_IMG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkqAcAAIUAgUW0RjgAAAAASUVORK5CYII=";
 
-    // --- SERVICE WORKER (AUTO UPDATE) ---
+    // --- SYSTEME DE MISE A JOUR AUTO ---
     if ('serviceWorker' in navigator) {
-        // Nettoyage préventif
-        navigator.serviceWorker.getRegistrations().then(function(registrations) {
-            for(let registration of registrations) { registration.unregister(); }
-        });
-
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('sw.js').then(reg => {
+                
+                // On vérifie les mises à jour à chaque lancement
+                reg.update();
+
                 reg.onupdatefound = () => {
                     const installingWorker = reg.installing;
                     installingWorker.onstatechange = () => {
                         if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            window.location.reload();
+                            // Nouvelle version prête !
+                            document.getElementById('update-toast').style.display = 'block';
+                            setTimeout(() => {
+                                window.location.reload(); // On recharge la page tout seul
+                            }, 1000);
                         }
                     };
                 };
@@ -74,8 +86,10 @@
     const input = document.getElementById('search-input');
     const clearBtn = document.getElementById('clear-btn');
 
-    // --- LECTURE INTELLIGENTE ---
-    Papa.parse("base.csv", {
+    // Ajout d'un paramètre temporel pour forcer le re-téléchargement du CSV si réseau dispo
+    const csvUrl = "base.csv?t=" + new Date().getTime();
+
+    Papa.parse(csvUrl, {
         download: true,
         header: true,
         skipEmptyLines: true,
@@ -85,24 +99,30 @@
             allProducts = results.data;
             container.innerHTML = "";
             displayProducts(allProducts);
+        },
+        error: function() {
+            // Si erreur (ex: hors ligne et pas de cache), on re-tente sans le timestamp
+            Papa.parse("base.csv", {
+                download: true, header: true, skipEmptyLines: true, delimiter: ";", encoding: "UTF-8",
+                complete: function(res) {
+                    allProducts = res.data;
+                    container.innerHTML = "";
+                    displayProducts(allProducts);
+                }
+            });
         }
     });
 
-    // --- FONCTION QUI TROUVE LA BONNE COLONNE ---
-    // Elle cherche une colonne qui contient "ref", "nom", etc. peu importe les accents ou majuscules
     function findValue(item, keywords) {
         if (!item) return "";
         const keys = Object.keys(item);
-        // On cherche une clé qui correspond à un des mots clés
         for (let key of keys) {
             const cleanKey = key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
             for (let keyword of keywords) {
-                if (cleanKey.includes(keyword)) {
-                    return item[key]; // Trouvé !
-                }
+                if (cleanKey.includes(keyword)) return item[key];
             }
         }
-        return ""; // Pas trouvé
+        return "";
     }
 
     function normalize(str) {
@@ -120,19 +140,12 @@
         for (let i = 0; i < displayLimit; i++) {
             const p = products[i];
             
-            // --- C'EST ICI LA MAGIE ---
-            // On cherche la valeur intelligemment
             let nom = findValue(p, ["nom", "name", "designation"]) || "-";
             let marque = findValue(p, ["marque", "brand"]) || "-";
             let pays = findValue(p, ["pays", "origin"]) || "";
             let cond = findValue(p, ["cond", "pack"]) || "-";
-            
-            // Pour la réf, on cherche 'ref', 'code', 'art'
             let refRaw = findValue(p, ["ref", "code", "art"]) || "000000";
-            
-            // Nettoyage de la référence (enlève les espaces et force 6 chiffres)
             let refFormatted = refRaw.toString().trim().replace(/\s/g, '').padStart(6, '0');
-            
             const imgSrc = `images/${refFormatted}.webp`;
 
             html += `
@@ -144,7 +157,7 @@
                 <div class="info-line p-details">Cond: ${cond}</div>
             </div>`;
         }
-        html += `<div class="version-tag">Version 11 - Colonnes Intelligentes</div>`;
+        html += `<div class="version-tag">Version Auto-Update v13</div>`;
         container.innerHTML = html;
     }
 
@@ -158,7 +171,6 @@
         if (terms.length === 0) { displayProducts(allProducts); return; }
 
         const filtered = allProducts.filter(p => {
-            // On recrée une chaîne de recherche avec les valeurs trouvées intelligemment
             let n = findValue(p, ["nom"]);
             let m = findValue(p, ["marque"]);
             let r = findValue(p, ["ref"]);
