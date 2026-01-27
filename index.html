@@ -5,11 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Catalogue Paris Store</title>
 
-    <link rel="manifest" href="manifest.json?v=5">
-    
+    <link rel="manifest" href="manifest.json?v=6">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
-    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#ffffff">
@@ -17,94 +15,19 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     
     <style>
-        /* --- DESIGN GÉNÉRAL --- */
-        body { 
-            font-family: 'Segoe UI', Roboto, sans-serif; 
-            margin: 0; background-color: #f4f6f8; color: #333;
-            -webkit-tap-highlight-color: transparent;
-        }
-        
-        /* --- HEADER FIXE --- */
-        header {
-            position: fixed; top: 0; left: 0; right: 0;
-            background: white; 
-            padding: 10px;
-            padding-top: calc(10px + env(safe-area-inset-top));
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            z-index: 1000; 
-            display: flex; justify-content: center;
-        }
-
-        /* --- BARRE DE RECHERCHE --- */
-        .search-container {
-            position: relative;
-            width: 95%; max-width: 600px;
-        }
-
-        #search-input {
-            width: 100%; 
-            padding: 15px 20px; 
-            padding-right: 50px; /* Espace pour la croix */
-            font-size: 20px; 
-            border: 2px solid #dfe1e5; 
-            border-radius: 50px;
-            outline: none; 
-            background: #f1f3f4;
-            box-sizing: border-box; 
-            transition: all 0.3s;
-            z-index: 1; 
-        }
-        #search-input:focus { 
-            border-color: #007bff; background: #fff;
-        }
-
-        /* --- CROIX DE SUPPRESSION --- */
-        #clear-btn {
-            position: absolute;
-            right: 10px; top: 50%; transform: translateY(-50%);
-            width: 40px; height: 40px; 
-            line-height: 40px; text-align: center;
-            font-size: 28px; color: #999;
-            cursor: pointer; z-index: 100;
-            display: none; /* Caché par défaut */
-            background: transparent; border-radius: 50%;
-        }
-        #clear-btn:active { background-color: #eee; color: #333; }
-
-        /* --- GRILLE PRODUITS --- */
-        #results-container {
-            margin-top: 120px; 
-            padding: 15px; padding-bottom: 50px;
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); 
-            gap: 25px;
-        }
-
-        .card {
-            background: white; border-radius: 16px;
-            overflow: hidden; padding: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-            display: flex; flex-direction: column; 
-            border: 1px solid #eee;
-        }
-
-        .card-img {
-            width: 100%; height: 250px;
-            object-fit: contain; margin-bottom: 20px; 
-            border-bottom: 1px solid #f8f9fa;
-            background-color: #f9f9f9; 
-        }
-
+        body { font-family: 'Segoe UI', Roboto, sans-serif; margin: 0; background-color: #f4f6f8; color: #333; -webkit-tap-highlight-color: transparent; }
+        header { position: fixed; top: 0; left: 0; right: 0; background: white; padding: 10px; padding-top: calc(10px + env(safe-area-inset-top)); box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; display: flex; justify-content: center; }
+        .search-container { position: relative; width: 95%; max-width: 600px; }
+        #search-input { width: 100%; padding: 15px 20px; padding-right: 50px; font-size: 20px; border: 2px solid #dfe1e5; border-radius: 50px; outline: none; background: #f1f3f4; box-sizing: border-box; transition: all 0.3s; z-index: 1; }
+        #search-input:focus { border-color: #007bff; background: #fff; }
+        #clear-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; line-height: 40px; text-align: center; font-size: 28px; color: #999; cursor: pointer; z-index: 100; display: none; background: transparent; border-radius: 50%; }
+        #results-container { margin-top: 120px; padding: 15px; padding-bottom: 50px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; }
+        .card { background: white; border-radius: 16px; overflow: hidden; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); display: flex; flex-direction: column; border: 1px solid #eee; }
+        .card-img { width: 100%; height: 250px; object-fit: contain; margin-bottom: 20px; border-bottom: 1px solid #f8f9fa; background-color: #f9f9f9; }
         .info-line { margin-bottom: 10px; line-height: 1.4; }
         .p-name { font-size: 24px; font-weight: 800; color: #000; }
         .p-brand, .p-details { font-size: 20px; color: #444; font-weight: 500; }
-        .p-ref { 
-            font-family: monospace; background: #f8d7da; color: #dc3545;
-            padding: 8px 15px; border-radius: 8px; 
-            font-size: 32px; font-weight: 900;    
-            display: inline-block; margin: 10px 0; border: 2px solid #dc3545;
-        }
-
+        .p-ref { font-family: monospace; background: #f8d7da; color: #dc3545; padding: 8px 15px; border-radius: 8px; font-size: 32px; font-weight: 900; display: inline-block; margin: 10px 0; border: 2px solid #dc3545; }
         .loading { text-align: center; margin-top: 150px; color: #888; font-size: 22px; }
         .version-tag { text-align: center; color: #bbb; font-size: 11px; padding: 20px; width: 100%; grid-column: 1 / -1; }
     </style>
@@ -123,42 +46,24 @@
 </div>
 
 <script>
-    // === 1. IMAGE DE SECOURS (Base64) ===
-    // Évite les erreurs "ERR_NAME_NOT_RESOLVED" quand hors ligne
     const PLACEHOLDER_IMG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkqAcAAIUAgUW0RjgAAAAASUVORK5CYII=";
 
-    // === 2. GESTION SERVICE WORKER (AUTO-UPDATE) ===
+    // --- SCRIPT AUTO UPDATE SÉCURISÉ ---
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('sw.js').then(registration => {
-                
-                // Vérifie les mises à jour immédiatement
-                registration.update();
-
-                // Si une nouvelle version est trouvée
+            navigator.serviceWorker.register('sw.js')
+            .then(registration => {
+                console.log('SW Registered');
                 registration.onupdatefound = () => {
                     const installingWorker = registration.installing;
                     installingWorker.onstatechange = () => {
-                        if (installingWorker.state === 'installed') {
-                            if (navigator.serviceWorker.controller) {
-                                console.log('Nouvelle mise à jour disponible !');
-                                window.location.reload(); // Rechargement automatique
-                            }
+                        if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            window.location.reload();
                         }
                     };
                 };
-            });
-
-            // Si le contrôleur change, on recharge
-            navigator.serviceWorker.addEventListener('controllerchange', () => {
-                window.location.reload();
-            });
-        });
-
-        // Quand on récupère internet, on vérifie si une mise à jour est dispo
-        window.addEventListener('online', () => {
-            console.log('En ligne : Vérification mises à jour...');
-            navigator.serviceWorker.ready.then(reg => reg.update());
+            })
+            .catch(err => console.log('SW Echec:', err)); // Si ça plante, ça log juste l'erreur
         });
     }
 
@@ -167,16 +72,17 @@
     const input = document.getElementById('search-input');
     const clearBtn = document.getElementById('clear-btn');
 
-    // === 3. CHARGEMENT CSV ===
     Papa.parse("base.csv", {
         download: true, header: true, skipEmptyLines: true,
         complete: function(results) {
             allProducts = results.data;
+            if (results.errors.length > 0) console.log("Erreurs CSV:", results.errors);
             container.innerHTML = "";
             displayProducts(allProducts);
         },
-        error: function() {
-            container.innerHTML = "<p class='loading'>Erreur: base.csv introuvable.</p>";
+        error: function(err) {
+            container.innerHTML = "<p class='loading'>Erreur chargement CSV (vérifier connexion).</p>";
+            console.log(err);
         }
     });
 
@@ -185,7 +91,6 @@
         return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     }
 
-    // === 4. AFFICHAGE DES PRODUITS ===
     function displayProducts(products) {
         const displayLimit = products.length > 40 ? 40 : products.length;
         if(products.length === 0) {
@@ -195,12 +100,8 @@
         let html = "";
         for (let i = 0; i < displayLimit; i++) {
             const p = products[i];
-            
-            // Formatage référence (ajout des 0 devant)
             let refRaw = p['Référence'] || "000000";
             let refFormatted = refRaw.toString().padStart(6, '0');
-            
-            // Lien vers l'image WebP
             const imgSrc = `images/${refFormatted}.webp`;
 
             html += `
@@ -212,17 +113,13 @@
                 <div class="info-line p-details">Cond: ${p['Conditionnement'] || "-"}</div>
             </div>`;
         }
-        // Petit texte discret en bas pour confirmer la version
-        html += `<div class="version-tag">Version Connectée - Auto Update</div>`;
+        html += `<div class="version-tag">Version Réparée - v6</div>`;
         container.innerHTML = html;
     }
 
-    // === 5. MOTEUR DE RECHERCHE & CROIX ===
     function performSearch() {
         window.scrollTo({top: 0, behavior: 'instant'});
         const query = normalize(input.value);
-
-        // Affiche/Cache la croix
         if (query.length > 0) { clearBtn.style.display = "block"; } 
         else { clearBtn.style.display = "none"; }
 
@@ -237,8 +134,6 @@
     }
 
     input.addEventListener('input', performSearch);
-    
-    // Action clic sur la croix
     clearBtn.addEventListener('click', (e) => {
         e.preventDefault();
         input.value = "";
