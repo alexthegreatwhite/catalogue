@@ -1,4 +1,4 @@
-const CACHE_NAME = 'paris-store-v11';
+const CACHE_NAME = 'paris-store-v12';
 // ... le reste du fichier reste identique à la version précédente ...
 
 const ASSETS_TO_CACHE = [
