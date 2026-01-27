@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Paris Store</title>
 
-    <link rel="manifest" href="manifest.json?v=13">
+    <link rel="manifest" href="manifest.json?v=16">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -16,12 +16,25 @@
     
     <style>
         body { font-family: 'Segoe UI', Roboto, sans-serif; margin: 0; background-color: #f4f6f8; color: #333; -webkit-tap-highlight-color: transparent; }
-        header { position: fixed; top: 0; left: 0; right: 0; background: white; padding: 10px; padding-top: calc(10px + env(safe-area-inset-top)); box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; display: flex; justify-content: center; }
-        .search-container { position: relative; width: 95%; max-width: 600px; }
+        header { position: fixed; top: 0; left: 0; right: 0; background: white; padding: 10px; padding-top: calc(10px + env(safe-area-inset-top)); box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; display: flex; flex-direction: column; align-items: center; }
+        .search-container { position: relative; width: 95%; max-width: 600px; display: flex; align-items: center; }
         #search-input { width: 100%; padding: 15px 20px; padding-right: 50px; font-size: 20px; border: 2px solid #dfe1e5; border-radius: 50px; outline: none; background: #f1f3f4; box-sizing: border-box; transition: all 0.3s; z-index: 1; }
         #search-input:focus { border-color: #007bff; background: #fff; }
-        #clear-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; line-height: 40px; text-align: center; font-size: 28px; color: #999; cursor: pointer; z-index: 100; display: none; background: transparent; border-radius: 50%; }
-        #results-container { margin-top: 120px; padding: 15px; padding-bottom: 50px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; }
+        #clear-btn { position: absolute; right: 10px; width: 40px; height: 40px; line-height: 40px; text-align: center; font-size: 28px; color: #999; cursor: pointer; z-index: 100; display: none; }
+        
+        /* STYLE DU BOUTON DE TÉLÉCHARGEMENT */
+        #cache-controls { margin-top: 8px; text-align: center; width: 100%; }
+        #download-btn {
+            font-size: 13px; color: #007bff; background: #eef5ff; 
+            border: 1px solid #b8daff; padding: 5px 15px; border-radius: 20px;
+            cursor: pointer; font-weight: 500;
+        }
+        #progress-container { width: 90%; max-width: 600px; margin-top: 10px; display: none; }
+        #progress-bar { width: 100%; height: 8px; background: #eee; border-radius: 4px; overflow: hidden; }
+        #progress-fill { height: 100%; width: 0%; background: #28a745; transition: width 0.1s; }
+        #progress-text { font-size: 11px; color: #666; margin-top: 4px; text-align: center; }
+
+        #results-container { margin-top: 150px; padding: 15px; padding-bottom: 50px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; }
         .card { background: white; border-radius: 16px; overflow: hidden; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); display: flex; flex-direction: column; border: 1px solid #eee; }
         .card-img { width: 100%; height: 250px; object-fit: contain; margin-bottom: 20px; border-bottom: 1px solid #f8f9fa; background-color: #f9f9f9; }
         .info-line { margin-bottom: 10px; line-height: 1.4; }
@@ -30,13 +43,7 @@
         .p-ref { font-family: monospace; background: #f8d7da; color: #dc3545; padding: 8px 15px; border-radius: 8px; font-size: 32px; font-weight: 900; display: inline-block; margin: 10px 0; border: 2px solid #dc3545; }
         .loading { text-align: center; margin-top: 150px; color: #888; font-size: 22px; }
         .version-tag { text-align: center; color: #bbb; font-size: 11px; padding: 20px; width: 100%; grid-column: 1 / -1; }
-        
-        /* Petit popup de mise à jour (discret) */
-        #update-toast {
-            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-            background: #333; color: white; padding: 10px 20px; border-radius: 30px;
-            font-size: 14px; z-index: 2000; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        }
+        #update-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px 20px; border-radius: 30px; font-size: 14px; z-index: 2000; display: none; }
     </style>
 </head>
 <body>
@@ -46,34 +53,35 @@
         <input type="text" id="search-input" placeholder="Rechercher..." autofocus>
         <div id="clear-btn">&times;</div>
     </div>
+    
+    <div id="cache-controls">
+        <button id="download-btn" onclick="startCaching()">?? Mettre en cache toutes les images</button>
+        <div id="progress-container">
+            <div id="progress-bar"><div id="progress-fill"></div></div>
+            <div id="progress-text">Préparation...</div>
+        </div>
+    </div>
 </header>
 
 <div id="results-container">
     <div class="loading">Chargement...</div>
 </div>
-
 <div id="update-toast">Mise à jour installée...</div>
 
 <script>
     const PLACEHOLDER_IMG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkqAcAAIUAgUW0RjgAAAAASUVORK5CYII=";
 
-    // --- SYSTEME DE MISE A JOUR AUTO ---
+    // --- SW AUTO UPDATE ---
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('sw.js').then(reg => {
-                
-                // On vérifie les mises à jour à chaque lancement
                 reg.update();
-
                 reg.onupdatefound = () => {
                     const installingWorker = reg.installing;
                     installingWorker.onstatechange = () => {
                         if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            // Nouvelle version prête !
                             document.getElementById('update-toast').style.display = 'block';
-                            setTimeout(() => {
-                                window.location.reload(); // On recharge la page tout seul
-                            }, 1000);
+                            setTimeout(() => window.location.reload(), 1000);
                         }
                     };
                 };
@@ -86,22 +94,64 @@
     const input = document.getElementById('search-input');
     const clearBtn = document.getElementById('clear-btn');
 
-    // Ajout d'un paramètre temporel pour forcer le re-téléchargement du CSV si réseau dispo
-    const csvUrl = "base.csv?t=" + new Date().getTime();
+    // --- FONCTION DE TÉLÉCHARGEMENT MASSIF ---
+    async function startCaching() {
+        if (allProducts.length === 0) return alert("Attendez le chargement des produits.");
+        
+        const confirmMsg = `Cela va télécharger ${allProducts.length} images pour une utilisation hors-ligne.\n\nAssurez-vous d'être en Wi-Fi.\nContinuer ?`;
+        if (!confirm(confirmMsg)) return;
 
+        // UI Setup
+        document.getElementById('download-btn').style.display = 'none';
+        const pContainer = document.getElementById('progress-container');
+        const pFill = document.getElementById('progress-fill');
+        const pText = document.getElementById('progress-text');
+        pContainer.style.display = 'block';
+
+        let count = 0;
+        const total = allProducts.length;
+
+        // Boucle sur TOUS les produits
+        for (const p of allProducts) {
+            // Reconstitution exacte du nom de fichier
+            let refRaw = findValue(p, ["ref", "code", "art"]) || "000000";
+            let refFormatted = refRaw.toString().trim().replace(/\s/g, '').padStart(6, '0');
+            const url = `images/${refFormatted}.webp`;
+
+            try {
+                // Fetch déclenche le Service Worker qui met en cache
+                await fetch(url, { mode: 'no-cors' }); 
+            } catch (e) {
+                console.log("Erreur sur l'image : " + url);
+            }
+
+            count++;
+            // Mise à jour barre de progression
+            if (count % 10 === 0 || count === total) { // Optimisation affichage
+                const percent = Math.round((count / total) * 100);
+                pFill.style.width = percent + "%";
+                pText.innerText = `${count} / ${total} images mises en cache`;
+            }
+        }
+
+        pText.innerText = "? Terminé ! Toutes les images sont disponibles hors-ligne.";
+        setTimeout(() => {
+            pContainer.style.display = 'none';
+            document.getElementById('download-btn').style.display = 'inline-block';
+            document.getElementById('download-btn').innerText = "? Images en cache (Relancer ?)";
+        }, 4000);
+    }
+
+    // --- CHARGEMENT DONNÉES ---
+    const csvUrl = "base.csv?t=" + new Date().getTime();
     Papa.parse(csvUrl, {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        delimiter: ";", 
-        encoding: "UTF-8",
+        download: true, header: true, skipEmptyLines: true, delimiter: ";", encoding: "UTF-8",
         complete: function(results) {
             allProducts = results.data;
             container.innerHTML = "";
             displayProducts(allProducts);
         },
         error: function() {
-            // Si erreur (ex: hors ligne et pas de cache), on re-tente sans le timestamp
             Papa.parse("base.csv", {
                 download: true, header: true, skipEmptyLines: true, delimiter: ";", encoding: "UTF-8",
                 complete: function(res) {
@@ -157,7 +207,7 @@
                 <div class="info-line p-details">Cond: ${cond}</div>
             </div>`;
         }
-        html += `<div class="version-tag">Version Auto-Update v13</div>`;
+        html += `<div class="version-tag">Version v16 - Download Complet</div>`;
         container.innerHTML = html;
     }
 
@@ -166,10 +216,8 @@
         const query = normalize(input.value);
         if (query.length > 0) { clearBtn.style.display = "block"; } 
         else { clearBtn.style.display = "none"; }
-
         const terms = query.split(" ").filter(t => t.length > 0);
         if (terms.length === 0) { displayProducts(allProducts); return; }
-
         const filtered = allProducts.filter(p => {
             let n = findValue(p, ["nom"]);
             let m = findValue(p, ["marque"]);
@@ -179,7 +227,6 @@
         });
         displayProducts(filtered);
     }
-
     input.addEventListener('input', performSearch);
     clearBtn.addEventListener('click', (e) => {
         e.preventDefault();
