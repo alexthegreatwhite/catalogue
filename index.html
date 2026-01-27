@@ -2,148 +2,112 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Paris Store</title>
-
-    <link rel="manifest" href="manifest.json?v=8">
-    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#ffffff">
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DEBUG MODE</title>
     
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+
     <style>
-        body { font-family: 'Segoe UI', Roboto, sans-serif; margin: 0; background-color: #f4f6f8; color: #333; -webkit-tap-highlight-color: transparent; }
-        header { position: fixed; top: 0; left: 0; right: 0; background: white; padding: 10px; padding-top: calc(10px + env(safe-area-inset-top)); box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; display: flex; justify-content: center; }
-        .search-container { position: relative; width: 95%; max-width: 600px; }
-        #search-input { width: 100%; padding: 15px 20px; padding-right: 50px; font-size: 20px; border: 2px solid #dfe1e5; border-radius: 50px; outline: none; background: #f1f3f4; box-sizing: border-box; transition: all 0.3s; z-index: 1; }
-        #search-input:focus { border-color: #007bff; background: #fff; }
-        #clear-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; line-height: 40px; text-align: center; font-size: 28px; color: #999; cursor: pointer; z-index: 100; display: none; background: transparent; border-radius: 50%; }
-        #results-container { margin-top: 120px; padding: 15px; padding-bottom: 50px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; }
-        .card { background: white; border-radius: 16px; overflow: hidden; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); display: flex; flex-direction: column; border: 1px solid #eee; }
-        .card-img { width: 100%; height: 250px; object-fit: contain; margin-bottom: 20px; border-bottom: 1px solid #f8f9fa; background-color: #f9f9f9; }
-        .info-line { margin-bottom: 10px; line-height: 1.4; }
-        .p-name { font-size: 24px; font-weight: 800; color: #000; }
-        .p-brand, .p-details { font-size: 20px; color: #444; font-weight: 500; }
-        .p-ref { font-family: monospace; background: #f8d7da; color: #dc3545; padding: 8px 15px; border-radius: 8px; font-size: 32px; font-weight: 900; display: inline-block; margin: 10px 0; border: 2px solid #dc3545; }
-        .loading { text-align: center; margin-top: 150px; color: #888; font-size: 22px; }
-        .version-tag { text-align: center; color: #bbb; font-size: 11px; padding: 20px; width: 100%; grid-column: 1 / -1; }
+        body { font-family: sans-serif; padding-top: 200px; }
+        
+        /* BOITE DE DIAGNOSTIC ROUGE */
+        #debug-box {
+            position: fixed; top: 0; left: 0; right: 0; height: 180px;
+            background: #333; color: #0f0; /* Noir et Vert Matrix */
+            padding: 10px; font-family: monospace; font-size: 12px;
+            overflow-y: scroll; z-index: 9999; border-bottom: 2px solid red;
+        }
+        
+        .card { border: 1px solid #ccc; padding: 10px; margin: 10px; border-radius: 8px; }
+        .img-test { width: 50px; height: 50px; background: #eee; }
     </style>
 </head>
 <body>
 
-<header>
-    <div class="search-container">
-        <input type="text" id="search-input" placeholder="Rechercher..." autofocus>
-        <div id="clear-btn">&times;</div>
-    </div>
-</header>
+<div id="debug-box">INITIALISATION DIAGNOSTIC...<br></div>
 
-<div id="results-container">
-    <div class="loading">Chargement...</div>
+<div id="content">
+    <h3>Résultats ci-dessous :</h3>
+    <div id="results"></div>
 </div>
 
 <script>
-    const PLACEHOLDER_IMG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkqAcAAIUAgUW0RjgAAAAASUVORK5CYII=";
+    const debug = document.getElementById('debug-box');
+    
+    function log(msg) {
+        debug.innerHTML += ">> " + msg + "<br>";
+        console.log(msg);
+    }
 
-    // === GESTION DU CACHE ET AUTO-UPDATE ===
+    // 1. TEST DU SERVICE WORKER (On le tue pour le test)
     if ('serviceWorker' in navigator) {
-        // 1. On nettoie les vieux caches pour être sûr d'avoir la version propre
         navigator.serviceWorker.getRegistrations().then(function(registrations) {
             for(let registration of registrations) {
-                // On désinscrit temporairement pour forcer le rechargement immédiat
+                log("Suppression ancien Service Worker...");
                 registration.unregister();
             }
         });
-
-        // 2. On réinstalle proprement
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('sw.js?v=8').then(registration => {
-                console.log('SW enregistré');
-            });
-        });
     }
 
-    let allProducts = [];
-    const container = document.getElementById('results-container');
-    const input = document.getElementById('search-input');
-    const clearBtn = document.getElementById('clear-btn');
+    log("Démarrage lecture CSV...");
 
-    // === CHARGEMENT CSV SPÉCIAL POINT-VIRGULE ===
-    Papa.parse("base.csv", {
+    // 2. LECTURE DU FICHIER
+    // On ajoute un nombre aléatoire (?t=...) pour empêcher le cache de bloquer
+    const csvUrl = "base.csv?t=" + new Date().getTime();
+
+    Papa.parse(csvUrl, {
         download: true,
         header: true,
         skipEmptyLines: true,
-        delimiter: ";", // <--- C'EST LA QUE TOUT SE JOUE !
+        delimiter: ";", // On force le point-virgule
+        encoding: "UTF-8", // On espère que tu as fait l'étape 1 !
+        
         complete: function(results) {
-            allProducts = results.data;
-            container.innerHTML = "";
-            displayProducts(allProducts);
+            log("--- LECTURE TERMINÉE ---");
+            log("Lignes trouvées : " + results.data.length);
+            
+            if (results.errors.length > 0) {
+                log("ERREURS CSV : " + JSON.stringify(results.errors[0]));
+            }
+
+            if (results.data.length > 0) {
+                // Analyse de la première ligne
+                const firstRow = results.data[0];
+                log("COLONNES DÉTECTÉES :");
+                log(Object.keys(firstRow).join(" | "));
+                
+                log("PREMIER PRODUIT :");
+                log(JSON.stringify(firstRow));
+
+                // Affichage test
+                displayTest(results.data);
+            } else {
+                log("ERREUR CRITIQUE : Le fichier semble vide.");
+            }
         },
         error: function(err) {
-            container.innerHTML = "<p class='loading'>Erreur lecture CSV.</p>";
+            log("ERREUR CHARGEMENT : Impossible de télécharger base.csv");
+            log(err);
         }
     });
 
-    function normalize(str) {
-        if(!str) return "";
-        return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-    }
-
-    function displayProducts(products) {
-        const displayLimit = products.length > 40 ? 40 : products.length;
-        if(products.length === 0) {
-            container.innerHTML = "<p style='text-align:center;width:100%;font-size:22px;'>Aucun résultat.</p>";
-            return;
-        }
-        let html = "";
-        for (let i = 0; i < displayLimit; i++) {
-            const p = products[i];
+    function displayTest(products) {
+        const container = document.getElementById('results');
+        // On affiche juste les 5 premiers pour tester
+        for(let i=0; i<5; i++) {
+            if(!products[i]) break;
+            let p = products[i];
             
-            // On gère les noms de colonnes même s'il y a des petites erreurs
-            let refRaw = p['Référence'] || p['Reference'] || "000000";
-            let refFormatted = refRaw.toString().replace(/\s/g, '').padStart(6, '0'); // On enlève aussi les espaces cachés
+            // On essaie de trouver la référence peu importe comment c'est écrit
+            let ref = p['Référence'] || p['Reference'] || p['ref'] || "???";
             
-            const imgSrc = `images/${refFormatted}.webp`;
-
-            html += `
+            container.innerHTML += `
             <div class="card">
-                <img src="${imgSrc}" class="card-img" onerror="this.onerror=null;this.src='${PLACEHOLDER_IMG}'">
-                <div class="info-line p-name">${p['Nom'] || "-"}</div>
-                <div class="info-line p-brand">${p['Marque'] || "-"} (${p['Pays'] || ""})</div>
-                <div><span class="p-ref">${refFormatted}</span></div>
-                <div class="info-line p-details">Cond: ${p['Conditionnement'] || "-"}</div>
+                <strong>${p['Nom'] || 'Nom inconnu'}</strong><br>
+                Ref brute: ${ref}<br>
             </div>`;
         }
-        html += `<div class="version-tag">Version Finale - Mode Point-Virgule</div>`;
-        container.innerHTML = html;
     }
-
-    function performSearch() {
-        window.scrollTo({top: 0, behavior: 'instant'});
-        const query = normalize(input.value);
-        if (query.length > 0) { clearBtn.style.display = "block"; } 
-        else { clearBtn.style.display = "none"; }
-
-        const terms = query.split(" ").filter(t => t.length > 0);
-        if (terms.length === 0) { displayProducts(allProducts); return; }
-
-        const filtered = allProducts.filter(p => {
-            const productString = normalize(`${p['Nom']} ${p['Marque']} ${p['Référence']} ${p['Pays']}`);
-            return terms.every(term => productString.includes(term));
-        });
-        displayProducts(filtered);
-    }
-
-    input.addEventListener('input', performSearch);
-    clearBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        input.value = "";
-        performSearch();
-        input.focus();
-    });
 </script>
 
 </body>
