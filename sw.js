@@ -1,4 +1,4 @@
-const CACHE_NAME = 'paris-store-v19'; // Version 19 (Correction Images)
+const CACHE_NAME = 'paris-store-v20'; // Changement de version OBLIGATOIRE
 
 const ASSETS_TO_CACHE = [
   './',
@@ -8,27 +8,24 @@ const ASSETS_TO_CACHE = [
   './android-chrome-512x512.png',
   './apple-touch-icon.png',
   'https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js',
-  // La librairie Code-Barres
   'https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js'
 ];
 
-// INSTALLATION
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
+  self.skipWaiting(); // Force l'activation immédiate
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
   );
 });
 
-// ACTIVATION (Nettoyage)
 self.addEventListener('activate', (event) => {
+  // NETTOYAGE AGRESSIF : On supprime TOUT ce qui n'est pas la v20
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cache) => {
           if (cache !== CACHE_NAME) {
+            console.log("Suppression vieux cache:", cache);
             return caches.delete(cache);
           }
         })
@@ -38,48 +35,44 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// INTERCEPTION (Le Cerveau)
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // 1. CSV : Réseau d'abord (pour les prix)
+  // 1. Gestion CSV (Réseau d'abord)
   if (url.pathname.endsWith('base.csv')) {
     event.respondWith(
-      fetch(event.request).then((response) => {
-          return caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, response.clone());
-            return response;
-          });
-        }).catch(() => {
-          return caches.match(event.request);
-        })
+      fetch(event.request).then(response => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        return response;
+      }).catch(() => caches.match(event.request))
     );
     return;
   }
 
-  // 2. IMAGES : Cache d'abord + Sauvegarde auto
+  // 2. Gestion IMAGES (Cache d'abord, mais INTELLIGENT)
   if (url.pathname.includes('/images/')) {
     event.respondWith(
       caches.match(event.request).then((response) => {
-        // Si l'image est déjà là, on la donne tout de suite !
-        if (response) { return response; }
+        if (response) return response; // Si c'est en cache, on rend.
         
-        // Sinon on la télécharge et on la garde
         return fetch(event.request).then((networkResponse) => {
-            return caches.open(CACHE_NAME).then((cache) => {
-                cache.put(event.request, networkResponse.clone());
+            // SÉCURITÉ : On ne met en cache que si l'image existe vraiment (Code 200)
+            // Ça évite de stocker des "Erreurs 404"
+            if (!networkResponse || networkResponse.status !== 200) {
                 return networkResponse;
-            });
+            }
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+            return networkResponse;
         });
       })
     );
     return;
   }
 
-  // 3. LE RESTE (Scripts, Pages...)
+  // 3. Le reste
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
-    })
+    caches.match(event.request).then(response => response || fetch(event.request))
   );
 });
