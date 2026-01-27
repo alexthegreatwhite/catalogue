@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Paris Store</title>
+    <title>Catalogue Paris Store</title>
 
-    <link rel="manifest" href="manifest.json?v=10">
+    <link rel="manifest" href="manifest.json?v=11">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -46,20 +46,17 @@
 </div>
 
 <script>
-    // Image grise de secours (Base64)
     const PLACEHOLDER_IMG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkqAcAAIUAgUW0RjgAAAAASUVORK5CYII=";
 
-    // --- GESTION MISE A JOUR ---
+    // --- SERVICE WORKER (AUTO UPDATE) ---
     if ('serviceWorker' in navigator) {
-        // On force le nettoyage de l'ancien cache de diagnostic
+        // Nettoyage préventif
         navigator.serviceWorker.getRegistrations().then(function(registrations) {
             for(let registration of registrations) { registration.unregister(); }
         });
 
-        // On réinstalle le SW "Pro"
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('sw.js').then(reg => {
-                console.log('SW Installé');
                 reg.onupdatefound = () => {
                     const installingWorker = reg.installing;
                     installingWorker.onstatechange = () => {
@@ -77,22 +74,36 @@
     const input = document.getElementById('search-input');
     const clearBtn = document.getElementById('clear-btn');
 
-    // --- CONFIGURATION VALIDÉE PAR LE DIAGNOSTIC ---
+    // --- LECTURE INTELLIGENTE ---
     Papa.parse("base.csv", {
         download: true,
         header: true,
         skipEmptyLines: true,
-        delimiter: ";",        // On garde le point-virgule !
-        encoding: "UTF-8",     // On garde l'encodage !
+        delimiter: ";", 
+        encoding: "UTF-8",
         complete: function(results) {
             allProducts = results.data;
             container.innerHTML = "";
             displayProducts(allProducts);
-        },
-        error: function(err) {
-            container.innerHTML = "<p class='loading'>Erreur CSV.</p>";
         }
     });
+
+    // --- FONCTION QUI TROUVE LA BONNE COLONNE ---
+    // Elle cherche une colonne qui contient "ref", "nom", etc. peu importe les accents ou majuscules
+    function findValue(item, keywords) {
+        if (!item) return "";
+        const keys = Object.keys(item);
+        // On cherche une clé qui correspond à un des mots clés
+        for (let key of keys) {
+            const cleanKey = key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            for (let keyword of keywords) {
+                if (cleanKey.includes(keyword)) {
+                    return item[key]; // Trouvé !
+                }
+            }
+        }
+        return ""; // Pas trouvé
+    }
 
     function normalize(str) {
         if(!str) return "";
@@ -109,25 +120,31 @@
         for (let i = 0; i < displayLimit; i++) {
             const p = products[i];
             
-            // On utilise exactement les noms trouvés par le diagnostic
-            let refRaw = p['Référence'] || "000000";
+            // --- C'EST ICI LA MAGIE ---
+            // On cherche la valeur intelligemment
+            let nom = findValue(p, ["nom", "name", "designation"]) || "-";
+            let marque = findValue(p, ["marque", "brand"]) || "-";
+            let pays = findValue(p, ["pays", "origin"]) || "";
+            let cond = findValue(p, ["cond", "pack"]) || "-";
             
-            // Sécurité : On s'assure qu'on a bien 6 chiffres (ex: 090003)
-            // .trim() enlève les espaces invisibles qui font souvent bugger
-            let refFormatted = refRaw.toString().trim().padStart(6, '0');
+            // Pour la réf, on cherche 'ref', 'code', 'art'
+            let refRaw = findValue(p, ["ref", "code", "art"]) || "000000";
+            
+            // Nettoyage de la référence (enlève les espaces et force 6 chiffres)
+            let refFormatted = refRaw.toString().trim().replace(/\s/g, '').padStart(6, '0');
             
             const imgSrc = `images/${refFormatted}.webp`;
 
             html += `
             <div class="card">
                 <img src="${imgSrc}" class="card-img" onerror="this.onerror=null;this.src='${PLACEHOLDER_IMG}'">
-                <div class="info-line p-name">${p['Nom'] || "-"}</div>
-                <div class="info-line p-brand">${p['Marque'] || "-"} (${p['Pays'] || ""})</div>
+                <div class="info-line p-name">${nom}</div>
+                <div class="info-line p-brand">${marque} (${pays})</div>
                 <div><span class="p-ref">${refFormatted}</span></div>
-                <div class="info-line p-details">Cond: ${p['Conditionnement'] || "-"}</div>
+                <div class="info-line p-details">Cond: ${cond}</div>
             </div>`;
         }
-        html += `<div class="version-tag">Version Finale - Données OK</div>`;
+        html += `<div class="version-tag">Version 11 - Colonnes Intelligentes</div>`;
         container.innerHTML = html;
     }
 
@@ -141,7 +158,11 @@
         if (terms.length === 0) { displayProducts(allProducts); return; }
 
         const filtered = allProducts.filter(p => {
-            const productString = normalize(`${p['Nom']} ${p['Marque']} ${p['Référence']} ${p['Pays']}`);
+            // On recrée une chaîne de recherche avec les valeurs trouvées intelligemment
+            let n = findValue(p, ["nom"]);
+            let m = findValue(p, ["marque"]);
+            let r = findValue(p, ["ref"]);
+            const productString = normalize(`${n} ${m} ${r}`);
             return terms.every(term => productString.includes(term));
         });
         displayProducts(filtered);
