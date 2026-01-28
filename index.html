@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Paris Store</title>
+    <title>Catalogue Paris Store</title>
 
-    <link rel="manifest" href="manifest.json?v=23">
+    <link rel="manifest" href="manifest.json?v=24">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -28,9 +28,30 @@
         .info-line { margin-bottom: 8px; line-height: 1.4; }
         .p-name { font-size: 24px; font-weight: 800; color: #000; }
         .p-brand, .p-details { font-size: 20px; color: #444; font-weight: 500; }
-        .ref-row { display: flex; align-items: center; gap: 15px; margin: 10px 0; }
-        .p-ref { font-family: monospace; background: #f8d7da; color: #dc3545; padding: 8px 15px; border-radius: 8px; font-size: 32px; font-weight: 900; border: 2px solid #dc3545; flex-shrink: 0; }
-        .barcode { height: 55px; width: auto; max-width: 100%; }
+        
+        /* --- CHANGEMENT ICI : AFFICHAGE VERTICAL --- */
+        .ref-row { 
+            display: flex; 
+            flex-direction: column; /* On empile verticalement */
+            align-items: flex-start; /* On aligne à gauche */
+            gap: 10px; /* Espace entre le chiffre rouge et les barres */
+            margin: 15px 0;
+        }
+
+        .p-ref { 
+            font-family: monospace; background: #f8d7da; color: #dc3545;
+            padding: 8px 15px; border-radius: 8px; 
+            font-size: 32px; font-weight: 900;    
+            border: 2px solid #dc3545;
+            /* Pas de changement de taille */
+        }
+        
+        .barcode { 
+            height: 55px; /* Hauteur conservée */
+            width: auto; 
+            max-width: 100%;
+        }
+
         .footer-area { grid-column: 1 / -1; text-align: center; margin-top: 40px; margin-bottom: 20px; }
         .download-link { font-size: 11px; color: #999; text-decoration: underline; cursor: pointer; border: none; background: none; padding: 10px; }
         #progress-container { width: 60%; margin: 10px auto; display: none; }
@@ -58,27 +79,20 @@
 <script>
     const PLACEHOLDER_IMG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkqAcAAIUAgUW0RjgAAAAASUVORK5CYII=";
 
-    // --- CORRECTION DU BUG DE BOUCLE ---
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            // ON A ENLEVÉ LE "?t=..." : C'était la cause du bug !
             navigator.serviceWorker.register('sw.js').then(reg => {
-                
-                // On vérifie manuellement s'il y a du nouveau sur GitHub
                 reg.update();
-
                 reg.onupdatefound = () => {
                     const installingWorker = reg.installing;
                     installingWorker.onstatechange = () => {
                         if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            // Nouvelle version détectée -> On recharge UNE SEULE FOIS
                             document.getElementById('update-toast').style.display = 'block';
                             setTimeout(() => window.location.reload(), 1500);
                         }
                     };
                 };
             });
-            
             navigator.serviceWorker.addEventListener('controllerchange', () => {
                 window.location.reload();
             });
@@ -200,7 +214,7 @@
                 <div id="progress-bar"><div id="progress-fill"></div></div>
                 <div id="progress-text">0%</div>
             </div>
-            <div class="version-tag">Version 23 - Stable (Anti-Loop)</div>
+            <div class="version-tag">Version 24 - Code Barre Bas</div>
         </div>`;
         
         container.innerHTML = html;

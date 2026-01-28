@@ -1,4 +1,4 @@
-const CACHE_NAME = 'paris-store-v23'; // VERSION 23 (Pour arrêter la boucle)
+const CACHE_NAME = 'paris-store-v24'; // VERSION 24
 
 const ASSETS_TO_CACHE = [
   './',
