@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Paris Store</title>
+    <title>Catalogue Paris Store</title>
 
-    <link rel="manifest" href="manifest.json?v=21">
+    <link rel="manifest" href="manifest.json?v=22">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -33,13 +33,7 @@
         
         /* FLEXBOX CODE + BARRES */
         .ref-row { display: flex; align-items: center; gap: 15px; margin: 10px 0; }
-        .p-ref { 
-            font-family: monospace; background: #f8d7da; color: #dc3545;
-            padding: 8px 15px; border-radius: 8px; 
-            font-size: 32px; font-weight: 900;    
-            border: 2px solid #dc3545;
-            flex-shrink: 0;
-        }
+        .p-ref { font-family: monospace; background: #f8d7da; color: #dc3545; padding: 8px 15px; border-radius: 8px; font-size: 32px; font-weight: 900; border: 2px solid #dc3545; flex-shrink: 0; }
         .barcode { height: 55px; width: auto; max-width: 100%; }
 
         /* FOOTER */
@@ -50,7 +44,14 @@
         #progress-fill { height: 100%; width: 0%; background: #007bff; transition: width 0.1s; }
         #progress-text { font-size: 10px; color: #bbb; margin-top: 5px; }
         .version-tag { color: #e0e0e0; font-size: 10px; margin-top: 10px; }
-        #update-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px 20px; border-radius: 30px; font-size: 14px; z-index: 2000; display: none; }
+        
+        /* Toast de mise à jour */
+        #update-toast { 
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); 
+            background: #222; color: #fff; padding: 12px 24px; border-radius: 30px; 
+            font-size: 14px; z-index: 2000; display: none; box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            font-weight: bold; border: 1px solid #444;
+        }
     </style>
 </head>
 <body>
@@ -65,24 +66,37 @@
 <div id="results-container">
     <div class="loading">Chargement...</div>
 </div>
-<div id="update-toast">Mise à jour installée...</div>
+<div id="update-toast">Mise à jour disponible... Rechargement</div>
 
 <script>
     const PLACEHOLDER_IMG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkqAcAAIUAgUW0RjgAAAAASUVORK5CYII=";
 
+    // --- C'EST ICI QUE CA CHANGE ---
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('sw.js').then(reg => {
+            // ASTUCE : On ajoute "?t=..." pour forcer le téléphone à vérifier le fichier sw.js sur le serveur
+            // Si le fichier a changé (v21 -> v22), il le télécharge. Sinon, il ne fait rien.
+            navigator.serviceWorker.register('sw.js?t=' + new Date().getTime()).then(reg => {
+                
+                // On force la vérification
                 reg.update();
+
                 reg.onupdatefound = () => {
                     const installingWorker = reg.installing;
                     installingWorker.onstatechange = () => {
                         if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            // Nouvelle version détectée !
                             document.getElementById('update-toast').style.display = 'block';
-                            setTimeout(() => window.location.reload(), 1000);
+                            // On attend 1.5s pour que l'utilisateur lise, puis on recharge
+                            setTimeout(() => window.location.reload(), 1500);
                         }
                     };
                 };
+            });
+            
+            // Sécurité supplémentaire : Si le "Contrôleur" change, on recharge
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                window.location.reload();
             });
         });
     }
@@ -97,7 +111,7 @@
         const pContainer = document.getElementById('progress-container');
         const pFill = document.getElementById('progress-fill');
         const pText = document.getElementById('progress-text');
-        if (!confirm("Télécharger toutes les images pour l'accès hors ligne ?")) return;
+        if (!confirm("Télécharger toutes les images pour l'accès hors ligne ? (Conseillé en Wi-Fi)")) return;
         btn.style.display = 'none'; pContainer.style.display = 'block';
         let count = 0; const total = allProducts.length;
         for (const p of allProducts) {
@@ -116,7 +130,7 @@
         setTimeout(() => { pContainer.style.display = 'none'; btn.style.display = 'inline'; btn.innerText = "Images en cache (OK)"; btn.style.color = "#28a745"; btn.style.textDecoration = "none"; }, 3000);
     }
 
-    // Gestion du chargement avec Timestamp pour éviter le cache en ligne
+    // Chargement CSV avec anti-cache
     const csvUrl = "base.csv?t=" + new Date().getTime();
     
     Papa.parse(csvUrl, {
@@ -127,8 +141,7 @@
             displayProducts(allProducts);
         },
         error: function(err) {
-            // SI ERREUR (Offline), on réessaie sans le timestamp pour taper dans le cache
-            console.log("Erreur réseau, tentative cache...");
+            console.log("Tentative cache...");
             Papa.parse("base.csv", {
                 download: true, header: true, skipEmptyLines: true, delimiter: ";", encoding: "UTF-8",
                 complete: function(res) {
@@ -137,7 +150,7 @@
                     displayProducts(allProducts);
                 },
                 error: function() {
-                    container.innerHTML = "<p class='loading'>Mode Hors Ligne : Données non disponibles.<br>Relancez avec internet une fois pour télécharger.</p>";
+                    container.innerHTML = "<p class='loading'>Erreur : Vérifiez votre connexion une première fois.</p>";
                 }
             });
         }
@@ -206,11 +219,10 @@
                 <div id="progress-bar"><div id="progress-fill"></div></div>
                 <div id="progress-text">0%</div>
             </div>
-            <div class="version-tag">Version 21 - Offline Fix</div>
+            <div class="version-tag">Version 22 - Auto Update Fix</div>
         </div>`;
         
         container.innerHTML = html;
-        
         try { JsBarcode(".barcode").init(); } catch(e) {}
     }
 
