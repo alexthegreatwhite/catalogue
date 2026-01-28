@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Paris Store</title>
 
-    <link rel="manifest" href="manifest.json?v=18">
+    <link rel="manifest" href="manifest.json?v=21">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -31,7 +31,7 @@
         .p-name { font-size: 24px; font-weight: 800; color: #000; }
         .p-brand, .p-details { font-size: 20px; color: #444; font-weight: 500; }
         
-        /* DESIGN FLEX CODE + BARRE */
+        /* FLEXBOX CODE + BARRES */
         .ref-row { display: flex; align-items: center; gap: 15px; margin: 10px 0; }
         .p-ref { 
             font-family: monospace; background: #f8d7da; color: #dc3545;
@@ -116,7 +116,9 @@
         setTimeout(() => { pContainer.style.display = 'none'; btn.style.display = 'inline'; btn.innerText = "Images en cache (OK)"; btn.style.color = "#28a745"; btn.style.textDecoration = "none"; }, 3000);
     }
 
+    // Gestion du chargement avec Timestamp pour éviter le cache en ligne
     const csvUrl = "base.csv?t=" + new Date().getTime();
+    
     Papa.parse(csvUrl, {
         download: true, header: true, skipEmptyLines: true, delimiter: ";", encoding: "UTF-8",
         complete: function(results) {
@@ -124,13 +126,18 @@
             container.innerHTML = "";
             displayProducts(allProducts);
         },
-        error: function() {
+        error: function(err) {
+            // SI ERREUR (Offline), on réessaie sans le timestamp pour taper dans le cache
+            console.log("Erreur réseau, tentative cache...");
             Papa.parse("base.csv", {
                 download: true, header: true, skipEmptyLines: true, delimiter: ";", encoding: "UTF-8",
                 complete: function(res) {
                     allProducts = res.data;
                     container.innerHTML = "";
                     displayProducts(allProducts);
+                },
+                error: function() {
+                    container.innerHTML = "<p class='loading'>Mode Hors Ligne : Données non disponibles.<br>Relancez avec internet une fois pour télécharger.</p>";
                 }
             });
         }
@@ -199,7 +206,7 @@
                 <div id="progress-bar"><div id="progress-fill"></div></div>
                 <div id="progress-text">0%</div>
             </div>
-            <div class="version-tag">Version 18 - Code Barre Droite</div>
+            <div class="version-tag">Version 21 - Offline Fix</div>
         </div>`;
         
         container.innerHTML = html;
