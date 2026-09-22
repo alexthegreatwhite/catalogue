@@ -1,18 +1,16 @@
 <!DOCTYPE html>
 <!-- ================================================================
-  FICHIER À ENREGISTRER SOUS LE NOM : index.html
-  Puis à déposer à la racine de votre FTP Free (ftpperso.free.fr).
+  index.html — à déposer à la racine du dépôt GitHub, avec le
+  dossier img/ contenant les photos nommées CODE.webp (88062574.webp…)
 
   POORLENO — Catalogue produits (mono-fichier, 0 dépendance)
+  ► PHOTOS : PHOTO_AUTO = true → cherche img/CODE.webp pour chaque
+    produit. Image absente → visuel SVG généré (0 erreur affichée).
   ► CODES-BARRES : CODE 128 (ISO 15417) — encode exactement le code
-    produit à 8 chiffres (un scanner lira « 88090003 » pour 88090003).
+    produit à 8 chiffres (un scanner lit « 88090003 » pour 88090003).
   ► Mot de passe « PsP » : demandé UNE SEULE FOIS par session pour
     prendre une photo, modifier ou supprimer un produit.
   ► Base de données : localStorage (clés poorleno_ajouts / _modifs / _suppr)
-  ► Photos : dossier img/ sur le FTP. Deux méthodes :
-      - PHOTO_AUTO = true  → fichiers nommés img/CODE.webp (ex. 88090003.webp)
-      - ou PHOTOS['88090003'] = 'img/abalone.jpg'; (mapping manuel)
-    Sans photo → visuel SVG généré automatiquement (0 requête réseau).
 ================================================================= -->
 <html lang="fr">
 <head>
@@ -476,9 +474,11 @@ const esc = s => (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&g
 const nf = new Intl.NumberFormat('fr-FR');
 const fmtN = n => nf.format(n).replace(/\u202f|\u00a0/g,' ');
 
-/* ═══════════ PHOTOS : mappez vos fichiers ici ═══════════
-   PHOTOS['88090003'] = 'img/abalone-2-3.jpg';
-   Ou PHOTO_AUTO = true si vos fichiers sont nommés img/CODE.webp */
+/* ═══════════ PHOTOS : dossier img/ du dépôt GitHub ═══════════
+   PHOTO_AUTO = true → le site cherche automatiquement
+   img/CODE.webp pour chaque produit (ex. img/88062574.webp).
+   Mapping manuel possible en plus : PHOTOS['88090003'] = 'img/x.webp';
+   Image absente → visuel SVG généré automatiquement.            */
 const PHOTOS = {};
 const PHOTO_AUTO = true;
 
@@ -585,7 +585,7 @@ function toutProduit(){
 function invaliderSrc(){ srcCache=null; }
 const refDe = p => p.codeRef || p.code;
 
-/* ---------- Photos ---------- */
+/* ---------- Photos : priorité photo BDD > img/CODE.webp > SVG ---------- */
 const CAT_STYLE={
   abalone:['🦪','#f6e7d3','#e8c9a0'],algue:['🌿','#dcefe2','#a9d4b8'],
   ail:['🧄','#f2ecdc','#ddd0ac'],agar:['🍶','#e8eef2','#c2d4de'],
@@ -600,11 +600,11 @@ function photoSVG(p){
 }
 function photoDe(p){
   if(p.photo) return p.photo;                       // photo prise dans l'app (BDD)
-  if(PHOTOS[p.code]) return PHOTOS[p.code];         // fichier mappé
-  if(PHOTO_AUTO) return 'img/'+p.code+'.webp';      // img/CODE.webp
+  if(PHOTOS[p.code]) return PHOTOS[p.code];         // mapping manuel
+  if(PHOTO_AUTO) return 'img/'+p.code+'.webp';      // img/CODE.webp (dossier du dépôt)
   return photoSVG(p);                               // secours SVG
 }
-function imgFB(img){ img.onerror=null; img.src=img.dataset.fb; }
+function imgFB(img){ img.onerror=null; img.src=img.dataset.fb; }   // webp manquant → SVG
 
 /* ══════════════════════════════════════════════════════════
    CODE-BARRES CODE 128 (ISO 15417)
