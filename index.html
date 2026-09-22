@@ -1,277 +1,1068 @@
 <!DOCTYPE html>
+<!-- ================================================================
+  FICHIER À ENREGISTRER SOUS LE NOM : index.html
+  Puis à déposer à la racine de votre FTP Free (ftpperso.free.fr).
+
+  POORLENO — Catalogue produits (mono-fichier, 0 dépendance)
+  ► CODES-BARRES : CODE 128 (ISO 15417) — encode exactement le code
+    produit à 8 chiffres (un scanner lira « 88090003 » pour 88090003).
+  ► Mot de passe « PsP » : demandé UNE SEULE FOIS par session pour
+    prendre une photo, modifier ou supprimer un produit.
+  ► Base de données : localStorage (clés poorleno_ajouts / _modifs / _suppr)
+  ► Photos : dossier img/ sur le FTP. Deux méthodes :
+      - PHOTO_AUTO = true  → fichiers nommés img/CODE.webp (ex. 88090003.webp)
+      - ou PHOTOS['88090003'] = 'img/abalone.jpg'; (mapping manuel)
+    Sans photo → visuel SVG généré automatiquement (0 requête réseau).
+================================================================= -->
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Catalogue Paris Store</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d5c63">
+<meta name="description" content="Poorleno — Catalogue produits : fiches, codes-barres Code 128, ajout par photo, modification, suppression.">
+<title>Poorleno — Catalogue produits</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --primary:#0d5c63;--primary-dark:#094448;--primary-light:#e6f2f2;
+  --accent:#f4a259;--bg:#f1f4f5;--card:#fff;
+  --text:#1c2b2d;--text-2:#5f7173;--text-3:#8fa0a2;
+  --green:#2e9e5b;--red:#d64545;
+  --radius:14px;--shadow:0 1px 3px rgba(13,60,65,.08),0 4px 14px rgba(13,60,65,.06);
+  --nav-h:60px;
+}
+html,body{height:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  background:#dde5e6;color:var(--text);line-height:1.45;display:flex;justify-content:center}
+body.no-scroll{overflow:hidden}
+#app{width:100%;max-width:480px;min-height:100dvh;background:var(--bg);position:relative;
+  overflow-x:hidden;box-shadow:0 0 40px rgba(0,0,0,.15);display:flex;flex-direction:column}
 
-    <link rel="manifest" href="manifest.json?v=25">
-    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#ffffff">
+/* ===== HEADER : barre de recherche seule ===== */
+header{position:sticky;top:0;z-index:50;background:linear-gradient(135deg,var(--primary) 0%,#12707a 100%);padding:12px 16px}
+.search-wrap{position:relative}
+.search-wrap>svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;stroke:#7c8f91}
+#q{width:100%;padding:11px 12px 11px 38px;border:none;border-radius:11px;font-size:14.5px;background:#fff;color:var(--text);outline:none}
+#q::placeholder{color:var(--text-3)}
+.dot{width:8px;height:8px;border-radius:50%;background:#5ce08c;box-shadow:0 0 0 3px rgba(92,224,140,.25);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(92,224,140,.25)}50%{box-shadow:0 0 0 6px rgba(92,224,140,.08)}}
+@keyframes spin{to{transform:rotate(360deg)}}
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-    
-    <style>
-        body { font-family: 'Segoe UI', Roboto, sans-serif; margin: 0; background-color: #f4f6f8; color: #333; -webkit-tap-highlight-color: transparent; }
-        
-        header { position: fixed; top: 0; left: 0; right: 0; background: white; padding: 10px; padding-top: calc(10px + env(safe-area-inset-top)); box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; display: flex; justify-content: center; }
-        .search-container { position: relative; width: 95%; max-width: 600px; }
-        #search-input { width: 100%; padding: 15px 20px; padding-right: 50px; font-size: 20px; border: 2px solid #dfe1e5; border-radius: 50px; outline: none; background: #f1f3f4; box-sizing: border-box; transition: all 0.3s; z-index: 1; }
-        #search-input:focus { border-color: #007bff; background: #fff; }
-        #clear-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; line-height: 40px; text-align: center; font-size: 28px; color: #999; cursor: pointer; z-index: 100; display: none; background: transparent; border-radius: 50%; }
+/* ===== ÉCRAN SYNC ===== */
+#syncScreen{position:fixed;inset:0;z-index:200;background:linear-gradient(160deg,var(--primary) 0%,#0a4a50 100%);
+  color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;transition:opacity .5s,visibility .5s}
+#syncScreen.hide{opacity:0;visibility:hidden}
+.spinner{width:54px;height:54px;border-radius:50%;border:4px solid rgba(255,255,255,.18);border-top-color:#fff;animation:spin .9s linear infinite}
+#syncScreen h1{font-size:24px;letter-spacing:.5px}
+#syncCount{font-size:14px;opacity:.85}
+#syncCount b{font-size:20px}
+.sync-status{display:flex;align-items:center;gap:7px;font-size:12.5px;opacity:.8}
 
-        #results-container { margin-top: 100px; padding: 15px; padding-bottom: 50px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; }
-        .card { background: white; border-radius: 16px; overflow: hidden; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); display: flex; flex-direction: column; border: 1px solid #eee; }
-        .card-img { width: 100%; height: 250px; object-fit: contain; margin-bottom: 15px; border-bottom: 1px solid #f8f9fa; background-color: #f9f9f9; }
-        
-        .info-line { margin-bottom: 8px; line-height: 1.4; }
-        .p-name { font-size: 24px; font-weight: 800; color: #000; }
-        .p-brand, .p-details { font-size: 20px; color: #444; font-weight: 500; }
-        
-        /* --- CODE BARRE VERTICAL (EN DESSOUS) --- */
-        .ref-row { 
-            display: flex; 
-            flex-direction: column; /* Vertical */
-            align-items: flex-start; /* Align� � gauche */
-            gap: 10px; 
-            margin: 15px 0;
-        }
+/* ===== CATALOGUE ===== */
+main{flex:1;padding:14px 14px calc(var(--nav-h) + 100px)}
+#resultInfo{font-size:12px;color:var(--text-2);margin:2px 4px 10px;display:flex;justify-content:space-between}
+#list{display:flex;flex-direction:column;gap:10px}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);display:flex;gap:12px;padding:11px;
+  cursor:pointer;transition:transform .12s;border:1px solid rgba(13,92,99,.06)}
+.card:active{transform:scale(.985)}
+.thumb{width:64px;height:64px;border-radius:10px;flex:none;overflow:hidden;background:var(--primary-light)}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.c-body{flex:1;min-width:0}
+.c-name{font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c-meta{font-size:12px;color:var(--text-2);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c-bottom{display:flex;align-items:flex-end;gap:8px;margin-top:5px;overflow:hidden}
+.c-code{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:12px;font-weight:600;color:var(--primary);
+  background:var(--primary-light);padding:2px 8px;border-radius:6px;letter-spacing:.5px;flex:none}
+.c-bottom svg.bc{flex:none}
+.c-pack{font-size:11px;color:var(--text-3);white-space:nowrap;margin-left:auto;overflow:hidden;text-overflow:ellipsis}
+.badge-new{font-size:9.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;background:var(--accent);
+  color:#fff;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:2px}
+.badge-mod{font-size:9.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;background:#7a9a9d;
+  color:#fff;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:2px}
+#moreBtn{margin:16px auto 10px;display:block;padding:12px 22px;font-size:14px;font-weight:600;background:#fff;
+  color:var(--primary);border:1.5px solid var(--primary);border-radius:12px;cursor:pointer;transition:background .15s}
+#moreBtn:hover{background:var(--primary-light)}
+#addBtn{display:block;width:100%;padding:13px;font-size:14.5px;font-weight:700;border:none;border-radius:12px;
+  background:linear-gradient(135deg,var(--accent),#ef8f3c);color:#fff;cursor:pointer;
+  box-shadow:0 4px 12px rgba(244,162,89,.35);font-family:inherit}
+#empty{display:none;text-align:center;padding:50px 20px;color:var(--text-2)}
+#empty svg{width:52px;height:52px;stroke:var(--text-3);margin-bottom:10px}
+#empty h3{font-size:16px;margin-bottom:4px;color:var(--text)}
+#empty p{font-size:13px}
 
-        .p-ref { 
-            font-family: monospace; background: #f8d7da; color: #dc3545;
-            padding: 8px 15px; border-radius: 8px; 
-            font-size: 32px; font-weight: 900;    
-            border: 2px solid #dc3545;
-        }
-        
-        .barcode { 
-            height: 55px; width: auto; max-width: 100%; 
-        }
+/* ===== NAV BASSE + FAB ===== */
+nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:60;background:#fff;
+  border-top:1px solid #e3e9ea;display:flex;height:calc(var(--nav-h) + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom)}
+.nav-btn{flex:1;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:3px;font-size:11px;font-weight:600;color:var(--text-3);font-family:inherit;transition:color .15s}
+.nav-btn svg{width:23px;height:23px}
+.nav-btn.active{color:var(--primary)}
+#fab{position:fixed;bottom:calc(var(--nav-h) + 16px + env(safe-area-inset-bottom));right:calc(50% - 240px + 18px);z-index:61;
+  width:56px;height:56px;border-radius:50%;border:none;cursor:pointer;background:linear-gradient(135deg,var(--accent),#ef8f3c);
+  color:#fff;box-shadow:0 6px 18px rgba(244,162,89,.5);display:flex;align-items:center;justify-content:center;transition:transform .15s}
+#fab:active{transform:scale(.92)}
+#fab svg{width:26px;height:26px}
+@media(max-width:479px){#fab{right:18px}}
 
-        /* Footer & Download */
-        .footer-area { grid-column: 1 / -1; text-align: center; margin-top: 40px; margin-bottom: 20px; }
-        .download-link { font-size: 11px; color: #999; text-decoration: underline; cursor: pointer; border: none; background: none; padding: 10px; }
-        #progress-container { width: 60%; margin: 10px auto; display: none; }
-        #progress-bar { width: 100%; height: 4px; background: #eee; border-radius: 2px; overflow: hidden; }
-        #progress-fill { height: 100%; width: 0%; background: #007bff; transition: width 0.1s; }
-        #progress-text { font-size: 10px; color: #bbb; margin-top: 5px; }
-        .version-tag { color: #e0e0e0; font-size: 10px; margin-top: 10px; }
-        
-        #update-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #222; color: #fff; padding: 12px 24px; border-radius: 30px; font-size: 14px; z-index: 2000; display: none; font-weight: bold; border: 1px solid #444; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
-    </style>
+/* ===== CAMÉRA ===== */
+#camScreen{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:120;
+  background:#000;display:none;flex-direction:column}
+#camScreen.open{display:flex}
+#camVideo{flex:1;width:100%;object-fit:cover;background:#111}
+.cam-bar{padding:18px 0 calc(18px + env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(transparent,rgba(0,0,0,.55));position:absolute;bottom:0;left:0;right:0}
+#shutter{width:68px;height:68px;border-radius:50%;border:4px solid #fff;background:rgba(255,255,255,.25);cursor:pointer;transition:transform .1s}
+#shutter:active{transform:scale(.9);background:#fff}
+.cam-close{position:absolute;top:calc(12px + env(safe-area-inset-top));left:12px;z-index:5;width:40px;height:40px;border-radius:50%;
+  border:none;background:rgba(0,0,0,.45);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.cam-guide{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:66%;aspect-ratio:1;
+  border:2px dashed rgba(255,255,255,.7);border-radius:16px;pointer-events:none;box-shadow:0 0 0 2000px rgba(0,0,0,.18)}
+.cam-hint{position:absolute;top:calc(16px + env(safe-area-inset-top));left:0;right:0;text-align:center;color:#fff;
+  font-size:12.5px;text-shadow:0 1px 4px rgba(0,0,0,.6);padding:0 60px}
+.cam-error{position:absolute;inset:0;display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;
+  color:#fff;padding:30px;text-align:center;background:#111}
+.cam-error p{font-size:14px;opacity:.85}
+
+/* ===== OVERLAYS ===== */
+.overlay{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:150;
+  background:rgba(10,30,33,.55);display:none;align-items:flex-end;backdrop-filter:blur(2px)}
+.overlay.open{display:flex}
+.sheet{width:100%;background:var(--bg);border-radius:20px 20px 0 0;max-height:94%;overflow-y:auto;
+  overscroll-behavior:contain;animation:slideUp .28s cubic-bezier(.2,.8,.3,1);padding-bottom:env(safe-area-inset-bottom)}
+@keyframes slideUp{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+.sheet-head{position:sticky;top:0;background:var(--bg);z-index:5;padding:14px 18px 12px;border-bottom:1px solid #e3e9ea;
+  display:flex;align-items:center;gap:10px}
+.sheet-head h2{font-size:17px}
+.back-btn{width:34px;height:34px;flex:none;border-radius:9px;border:none;background:#fff;box-shadow:var(--shadow);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--primary)}
+.back-btn svg{width:18px;height:18px}
+.sheet-body{padding:16px 18px 24px}
+
+/* stepper */
+.stepper{display:flex;align-items:center;justify-content:center;margin:14px 0 18px}
+.step{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--text-3)}
+.step .n{width:24px;height:24px;border-radius:50%;background:#dfe7e8;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.step.active{color:var(--primary)}
+.step.active .n{background:var(--primary)}
+.step.done .n{background:var(--green)}
+.step-line{width:36px;height:2px;background:#dfe7e8;margin:0 10px;border-radius:2px}
+.step-line.done{background:var(--green)}
+
+/* fiche produit (photo + infos ensemble) */
+.fiche-photo{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;display:flex;
+  align-items:center;justify-content:center;min-height:230px}
+.fiche-photo img{max-width:100%;max-height:300px;border-radius:10px;object-fit:contain}
+.info-rows{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-top:14px}
+.irow{display:flex;padding:13px 15px;border-bottom:1px solid #eef2f2;gap:12px}
+.irow:last-child{border-bottom:none}
+.irow .k{width:120px;flex:none;font-size:12.5px;color:var(--text-2);font-weight:500}
+.irow .v{font-size:14px;font-weight:600;word-break:break-word}
+.irow .v.mono{font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:.6px;color:var(--primary)}
+.barcode-box{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:18px 14px 12px;margin-top:14px;text-align:center;overflow-x:auto}
+.bc-title{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text-3);margin-bottom:12px;font-weight:600}
+.barcode-box svg{max-width:100%;height:auto}
+
+/* ajout / modification produit */
+.photo-zone{background:#fff;border:2px dashed #c6d4d5;border-radius:var(--radius);min-height:230px;display:flex;
+  flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:24px;text-align:center;overflow:hidden}
+.photo-zone.has-photo{border-style:solid;border-color:var(--primary);padding:0;min-height:250px}
+.photo-zone img{width:100%;height:250px;object-fit:cover;display:block;border-radius:12px}
+.photo-zone .pz-icon{width:44px;height:44px}
+.photo-zone p{font-size:13.5px;color:var(--text-2)}
+.photo-zone p b{color:var(--text)}
+.hint{font-size:12.5px;color:var(--text-2);margin-bottom:14px;background:var(--primary-light);border-radius:10px;padding:10px 13px}
+.hint::before{content:"ℹ️ ";font-size:11px}
+.photo-chip{display:flex;align-items:center;gap:12px;background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:10px 14px;margin-bottom:16px}
+.photo-chip img{width:52px;height:52px;border-radius:9px;object-fit:cover}
+.photo-chip .pc-t{flex:1;min-width:0}
+.photo-chip b{font-size:13.5px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.photo-chip span{font-size:11.5px;color:var(--text-3)}
+.link-btn{border:none;background:none;color:var(--primary);font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;padding:6px}
+
+.field{margin-bottom:15px}
+.field label{display:block;font-size:12.5px;font-weight:700;margin-bottom:6px}
+.field .req{color:var(--red)}
+.field input,.field select{width:100%;padding:11px 13px;border:1.5px solid #d8e1e2;border-radius:10px;font-size:14.5px;
+  font-family:inherit;background:#fff;color:var(--text);outline:none;transition:border-color .15s,box-shadow .15s;appearance:none}
+.field select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235f7173' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 13px center}
+.field input:focus,.field select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(13,92,99,.12)}
+.field input.err{border-color:var(--red);box-shadow:0 0 0 3px rgba(214,69,69,.1)}
+.field input.ok{border-color:var(--green)}
+.field .fh{font-size:11.5px;color:var(--text-3);margin-top:5px}
+.field .fe{font-size:11.5px;color:var(--red);margin-top:5px;display:none;font-weight:600}
+.field.show-err .fe{display:block}
+.field.show-err .fh{display:none}
+.ean-preview{background:#fff;border:1.5px solid #cde5d6;border-radius:10px;padding:12px;text-align:center;margin-top:8px;display:none;overflow-x:auto}
+.ean-preview.show{display:block}
+.ep-t{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--green);font-weight:700;margin-bottom:8px}
+
+.btn-row{display:flex;gap:10px;margin-top:20px}
+.btn{flex:1;padding:13px;border-radius:12px;font-size:14.5px;font-weight:700;cursor:pointer;border:none;font-family:inherit;
+  transition:all .15s;display:flex;align-items:center;justify-content:center;gap:7px}
+.btn:active{transform:scale(.98)}
+.btn svg{width:17px;height:17px;flex:none}
+.btn-ghost{background:#fff;color:var(--text-2);border:1.5px solid #d8e1e2}
+.btn-ghost:hover{border-color:var(--text-3)}
+.btn-primary{background:var(--primary);color:#fff;box-shadow:0 4px 12px rgba(13,92,99,.3)}
+.btn-primary:hover{background:var(--primary-dark)}
+.btn-accent{background:linear-gradient(135deg,var(--accent),#ef8f3c);color:#fff;box-shadow:0 4px 12px rgba(244,162,89,.4)}
+.btn-danger{background:var(--red);color:#fff;box-shadow:0 4px 12px rgba(214,69,69,.3)}
+.btn-danger:hover{background:#b93a3a}
+.btn-danger-ghost{background:#fff;color:var(--red);border:1.5px solid #eac4c4}
+.btn-danger-ghost:hover{background:#fdeaea}
+
+/* modales centrées */
+.overlay.center{align-items:center;justify-content:center;padding:20px}
+.modal{width:100%;max-width:380px;background:#fff;border-radius:18px;padding:24px 22px;animation:pop .25s cubic-bezier(.2,.8,.3,1);
+  box-shadow:0 20px 60px rgba(0,0,0,.3)}
+@keyframes pop{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+.lock-icon{width:52px;height:52px;border-radius:14px;background:var(--primary-light);color:var(--primary);
+  display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.lock-icon.danger{background:#fdeaea;color:var(--red)}
+.lock-icon svg{width:26px;height:26px}
+.modal h2{font-size:18px;margin-bottom:8px}
+.modal p{font-size:13px;color:var(--text-2);margin-bottom:16px}
+.modal p b{color:var(--text)}
+#pwdErr{display:none;color:var(--red);font-size:12.5px;font-weight:600;margin-top:8px}
+#pwdErr.show{display:block;animation:shake .35s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.pw-wrap{position:relative}
+.pw-wrap input{padding-right:44px}
+.pw-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:none;background:none;cursor:pointer;padding:8px;color:var(--text-3);display:flex}
+.pw-eye svg{width:19px;height:19px}
+
+/* toast */
+#toast{position:fixed;bottom:calc(var(--nav-h) + 24px);left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--text);color:#fff;padding:12px 20px;border-radius:12px;font-size:13.5px;font-weight:600;opacity:0;
+  pointer-events:none;transition:all .3s;z-index:300;max-width:88%;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.3);
+  display:flex;align-items:center;gap:8px}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast svg{width:17px;height:17px;flex:none}
+
+.hidden{display:none !important}
+::-webkit-scrollbar{width:0;height:0}
+@media(max-width:359px){.c-bottom svg.bc{display:none}}
+</style>
 </head>
 <body>
+<div id="app">
 
-<header>
-    <div class="search-container">
-        <input type="text" id="search-input" placeholder="Rechercher..." autofocus>
-        <div id="clear-btn">&times;</div>
+  <!-- ===== HEADER : recherche seule ===== -->
+  <header>
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input id="q" type="search" placeholder="Rechercher un produit, une marque, un code…" autocomplete="off" aria-label="Rechercher">
     </div>
-</header>
+  </header>
 
-<div id="results-container">
-    <div class="loading">Chargement...</div>
+  <!-- ===== ÉCRAN SYNC ===== -->
+  <div id="syncScreen" role="status">
+    <div class="spinner"></div>
+    <h1>Synchroniser</h1>
+    <div id="syncCount"><b>0</b> références au catalogue</div>
+    <div class="sync-status"><span class="dot"></span> Serveur connecté</div>
+  </div>
+
+  <!-- ===== CATALOGUE ===== -->
+  <main id="mainScreen">
+    <div id="resultInfo"><span id="rCount"></span><span id="rTotal"></span></div>
+    <div id="list"></div>
+    <div id="empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/><path d="M8 11h6"/></svg>
+      <h3>Aucun résultat</h3>
+      <p>Essayez un autre nom, une autre marque ou un code produit.</p>
+    </div>
+    <button id="moreBtn" onclick="afficherPlus()"></button>
+    <button id="addBtn" onclick="demanderAjout()">＋ Ajouter</button>
+  </main>
+
+  <!-- ===== NAV BASSE ===== -->
+  <nav>
+    <button class="nav-btn active" id="navCat" onclick="goCatalogue()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      Catalogue
+    </button>
+    <button class="nav-btn" id="navCam" onclick="ouvrirCamera()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      Appareil photo
+    </button>
+  </nav>
+  <button id="fab" title="Ajouter un produit" aria-label="Ajouter un produit" onclick="demanderAjout()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+
+  <!-- ===== CAMÉRA ===== -->
+  <div id="camScreen">
+    <video id="camVideo" autoplay playsinline muted></video>
+    <div class="cam-guide"></div>
+    <div class="cam-hint">Cadrez le produit de face, dans le carré</div>
+    <button class="cam-close" onclick="fermerCamera()" aria-label="Fermer">✕</button>
+    <div class="cam-bar"><button id="shutter" title="Prendre la photo" aria-label="Prendre la photo" onclick="capturer()"></button></div>
+    <div class="cam-error hidden" id="camError">
+      <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><path d="M2 2l20 20"/></svg>
+      <p><b>Caméra indisponible</b><br>Autorisez l'accès à la caméra, ou importez une photo depuis vos fichiers.</p>
+      <button class="btn btn-accent" style="max-width:240px" onclick="fileInput.click()">Choisir une photo</button>
+    </div>
+  </div>
+  <canvas id="cropCanvas" class="hidden" width="480" height="480"></canvas>
+  <input type="file" id="fileInput" accept="image/*" class="hidden">
+
+  <!-- ===== FICHE PRODUIT : photo + informations ensemble ===== -->
+  <div class="overlay" id="ficheOverlay" onclick="if(event.target===this)fermerFiche()">
+    <div class="sheet">
+      <div class="sheet-head">
+        <button class="back-btn" onclick="fermerFiche()" aria-label="Retour"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
+        <h2>Fiche produit</h2>
+      </div>
+      <div class="sheet-body">
+        <div class="fiche-photo" id="fichePhoto"></div>
+        <div class="info-rows" id="ficheInfo"></div>
+        <div class="barcode-box" id="ficheBarcode"></div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="demanderModifier()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>
+            Modifier
+          </button>
+          <button class="btn btn-danger-ghost" onclick="demanderSupprimer()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+            Supprimer
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== AJOUTER / MODIFIER UN PRODUIT ===== -->
+  <div class="overlay" id="addOverlay" onclick="if(event.target===this)fermerAjout()">
+    <div class="sheet">
+      <div class="sheet-head">
+        <button class="back-btn" onclick="fermerAjout()" aria-label="Retour"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
+        <h2 id="addTitle">Ajouter un produit</h2>
+      </div>
+      <div class="sheet-body">
+        <div class="stepper" id="addStepper">
+          <div class="step active" id="st1"><span class="n">1</span> Photo</div>
+          <div class="step-line" id="stLine"></div>
+          <div class="step" id="st2"><span class="n">2</span> Informations</div>
+        </div>
+
+        <!-- Étape 1 : photo (mode ajout uniquement) -->
+        <div id="addStep1">
+          <div class="hint">Prenez le produit en photo, de face, bien éclairé et sur un fond dégagé. La photo sera recadrée automatiquement.</div>
+          <div class="photo-zone" id="photoZone"></div>
+          <div class="btn-row" id="rowCam">
+            <button class="btn btn-ghost" onclick="fermerAjout()">Annuler</button>
+            <button class="btn btn-accent" onclick="ouvrirCameraAjout()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              Prendre une photo
+            </button>
+          </div>
+          <div class="btn-row" id="rowReprendre" style="display:none">
+            <button class="btn btn-ghost" onclick="reprendrePhoto()">Reprendre</button>
+            <button class="btn btn-primary" onclick="addGoStep(2)">Continuer</button>
+          </div>
+        </div>
+
+        <!-- Étape 2 : informations (ajout + modification) -->
+        <div id="addStep2" class="hidden">
+          <div class="photo-chip">
+            <img id="chipImg" alt="Photo du produit">
+            <div class="pc-t"><b>Photo du produit</b><span id="chipSub">Jpeg · recadrée automatiquement</span></div>
+            <button class="link-btn" onclick="changerPhoto()">Changer</button>
+          </div>
+          <div class="field" id="fNom">
+            <label>Nom du produit <span class="req">*</span></label>
+            <input id="iNom" type="text" placeholder="Ex. : Algue Séchée" autocomplete="off" maxlength="80">
+            <div class="fe">Le nom du produit est obligatoire.</div>
+          </div>
+          <div class="field">
+            <label>Marque</label>
+            <input id="iMarque" type="text" placeholder="Ex. : Eaglobe" autocomplete="off" maxlength="40" list="marquesList">
+            <datalist id="marquesList"></datalist>
+          </div>
+          <div class="field">
+            <label>Pays d'origine</label>
+            <select id="iPays">
+              <option value="">— Sélectionner —</option>
+              <option>Chine</option><option>Thaïlande</option><option>Vietnam</option>
+              <option>Corée du Sud</option><option>Japon</option><option>Inde</option>
+              <option>France</option><option>Philippines</option><option>Indonésie</option>
+              <option>Chili</option><option>Corée</option><option>Autre</option>
+            </select>
+          </div>
+          <div class="field" id="fCode">
+            <label>Code produit <span class="req">*</span></label>
+            <input id="iCode" type="text" inputmode="numeric" placeholder="Ex. : 88012345" autocomplete="off" maxlength="12">
+            <div class="fh">Toujours <b>88</b> puis 4 à 10 chiffres. Le préfixe est ajouté automatiquement si vous l'oubliez ; le code-barres est généré dans la foulée.</div>
+            <div class="fe" id="codeErr">Toujours 88 puis 4 à 10 chiffres.</div>
+            <div class="ean-preview" id="eanPreview">
+              <div class="ep-t">✓ Code-barres Code 128 — identique au code produit</div>
+              <div id="eanSvg"></div>
+            </div>
+          </div>
+          <div class="field">
+            <label>Conditionnement</label>
+            <input id="iCond" type="text" placeholder="Ex. : 500G x 20" autocomplete="off" maxlength="30">
+            <div class="fh">Format habituel : poids ou volume unitaire × nombre de colis.</div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-ghost" id="btnBackAdd" onclick="addBack()">Retour</button>
+            <button class="btn btn-primary" onclick="enregistrerProduit()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+              <span id="saveLbl">Enregistrer</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SUPPRESSION (confirmation) ===== -->
+  <div class="overlay center" id="delOverlay" onclick="if(event.target===this)fermerSuppr()">
+    <div class="modal">
+      <div class="lock-icon danger">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg>
+      </div>
+      <h2>Supprimer le produit</h2>
+      <p id="delTxt"></p>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="fermerSuppr()">Annuler</button>
+        <button class="btn btn-danger" onclick="confirmerSuppression()">Supprimer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ACCÈS PROTÉGÉ (PsP — une seule fois) ===== -->
+  <div class="overlay center" id="pwdOverlay" onclick="if(event.target===this)fermerPwd()">
+    <div class="modal">
+      <div class="lock-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+      <h2>Accès protégé</h2>
+      <p>La prise de photo, la modification et la suppression de produits sont réservées aux personnes autorisées. Saisissez le mot de passe pour déverrouiller <b>une seule fois</b> : il ne sera plus redemandé jusqu'à la fermeture de l'application.</p>
+      <div class="field" style="margin-bottom:0">
+        <label>Mot de passe</label>
+        <div class="pw-wrap">
+          <input id="iPwd" type="password" placeholder="••••••••" autocomplete="off">
+          <button class="pw-eye" type="button" onclick="togglePwd()" aria-label="Afficher le mot de passe">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <div id="pwdErr">Mot de passe incorrect. Réessayez.</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="fermerPwd()">Annuler</button>
+        <button class="btn btn-primary" onclick="deverrouiller()">Déverrouiller</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" role="status"><svg viewBox="0 0 24 24" fill="none" stroke="#5ce08c" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><span id="toastTxt"></span></div>
 </div>
-<div id="update-toast">Mise � jour disponible... Rechargement</div>
 
 <script>
-    const PLACEHOLDER_IMG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkqAcAAIUAgUW0RjgAAAAASUVORK5CYII=";
+'use strict';
+/* =====================================================
+   POORLENO — application mono-fichier, sans dépendance.
+   Mot de passe (photo / modification / suppression) :
+   ===================================================== */
+const MOT_DE_PASSE = 'PsP';   // demandé une seule fois par session
+const TOTAL_CATALOGUE = 3112;
+const PAGE_INITIALE = 41;
+const PAGE_PLUS = 50;
+const $ = id => document.getElementById(id);
+const esc = s => (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const nf = new Intl.NumberFormat('fr-FR');
+const fmtN = n => nf.format(n).replace(/\u202f|\u00a0/g,' ');
 
-    // --- MISE A JOUR INTELLIGENTE (V24) ---
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            // L'ajout de ?v=24 force le navigateur � v�rifier la mise � jour
-            navigator.serviceWorker.register('sw.js?v=25').then(reg => {
-                
-                reg.update(); // On v�rifie manuellement
+/* ═══════════ PHOTOS : mappez vos fichiers ici ═══════════
+   PHOTOS['88090003'] = 'img/abalone-2-3.jpg';
+   Ou PHOTO_AUTO = true si vos fichiers sont nommés img/CODE.webp */
+const PHOTOS = {};
+const PHOTO_AUTO = false;
 
-                reg.onupdatefound = () => {
-                    const installingWorker = reg.installing;
-                    installingWorker.onstatechange = () => {
-                        if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            // Nouvelle version pr�te -> Reload automatique
-                            document.getElementById('update-toast').style.display = 'block';
-                            setTimeout(() => window.location.reload(), 1500);
-                        }
-                    };
-                };
-            });
-            // S�curit� : si le contr�leur change, on recharge
-            navigator.serviceWorker.addEventListener('controllerchange', () => {
-                window.location.reload();
-            });
-        });
+/* ---------- 40 références réelles ---------- */
+const REELS = [
+['Abalone 2-3','GEOMAR','Chili','88090003','425G x 24','abalone'],
+['Abalone 4-5','GEOMAR','Chili','88090004','425G x 24','abalone'],
+['Abalone Nature','GEOMAR','Chili','88090020','425G x 25','abalone'],
+['Agar Agar','Eaglobe','Chine','88160002','42G x 50','agar'],
+['Ail','Eaglobe','Chine','88016866','500G x 20','ail'],
+['Ail & Piment en Saumure','Pasco','Inde','88210186','260G x 6','ail'],
+['Ail au Vinaigre','Thai Top Choice','Thaïlande','88060010','454G x 24','ail'],
+['Ail au Vinaigre','Vinawang','Vietnam','88180225','380G x 24','ail'],
+['Ail Coupé Séché','Eaglobe','Chine','88018311','1Kg x 10','ail'],
+['Ail Frit','Eaglobe','Chine','88019118','200G x 50','ail'],
+['Ail Frit','Eaglobe','Chine','88019120','200G x 50','ail'],
+['Ail Frit','Thai Top Choice','Thaïlande','88061482','100G x 48','ail'],
+['Ail Frit','Vinawang','Vietnam','88180177','100G x 24','ail'],
+['Ail Pilé','Eaglobe','Chine','88502508','500G x 20','ail'],
+['Ail Semoule','DUCROS','France','88001733','1Kg x 10','ail'],
+['Ail Semoule 60g','DUCROS','France','88001106','Non précisé','ail'],
+['Alcool Chen Nian Hua Tiao','ZWL','Chine','88011605','64Cl x 12','vin'],
+['Alcool Chen Nian Jia Fan','ZWL','Chine','88011613','75Cl x 12','vin'],
+['Alcool de Riz 14%','Fine Cook','Chine','88013251','3L x 6','vin'],
+['Alcool de Riz 14%','Marque inconnue','Chine','88013405','10L x 2','vin'],
+['Alcool de Riz fermenté 12%','Marque inconnue','Chine','88014229','75Cl x 12','vin'],
+['Alcool Hua Tiao 16%','Marque inconnue','Chine','88013518','75Cl x 12','vin'],
+['Alcool Shuang Jia Fan 16%','Marque inconnue','Chine','88011807','1,5l x 6','vin'],
+['Algue','Marque inconnue','Chine','88017723','150G x 40','algue'],
+['Algue','Marque inconnue','Chine','88017724','158G x 40','algue'],
+['Algue Assaisonnement','Seaweed Organic Seafood','Chine','88502891','500G x 20','algue'],
+['Algue Mixte pour Salade','Hosan','Corée du Sud','88160177','20G x 20','algue'],
+['Algue Rôti Epicée','JKFOOD','Corée du Sud','88160178','65G x 20','snack'],
+['Algue Séchée','Eaglobe','Chine','88011213','40G x 50','algue'],
+['Algue Séchée','Eaglobe','Chine','88014109','113G x 50','algue'],
+['Algue Séchée','Eaglobe','Chine','88016196','500G x 12','algue'],
+['Algue Séchée','Marque inconnue','Japon','88030685','200G x 10','algue'],
+['Algue Séchée','BEARWIND','Japon','88030923','20G x 40','algue'],
+['Algue Séchée','Ottogi','Corée du Sud','88160019','50G x 30','algue'],
+['Algue Séchée','Marque inconnue','Chine','88502134','60G x 60','algue'],
+['Algue Séchée Préparé','Marque inconnue','Japon','88030183','10G x 20','algue'],
+['Algue Séchée Wakame','Hosan','Corée du Sud','88160220','57G x 30','algue'],
+['Algues croustillantes arômatisées au barbecue','BIBIGO','Corée du Sud','88160544','KR 12UN/CT','snack'],
+['Algues en flocons','BIBIGO','Corée du Sud','88160496','UN 20UN/CT','snack'],
+['Algues grille 3x4g','A+HoSan','Corée','88160581','UN 24UN/C','snack']];
+
+/* ---------- Génération déterministe du reste ---------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const rnd = mulberry32(88090003), ri = n => Math.floor(rnd()*n);
+const NOMS=['Sauce Soja','Sauce Nuoc Mam','Sauce Huître','Vermicelle de Riz','Nouilles Instantanées','Champignon Noir','Gingembre au Vinaigre','Pâte de Curry Rouge','Lait de Coco','Farine de Riz','Sucre de Palme','Thé Vert Sencha','Tofu Soyeux','Crevette Séchée','Calamar Séché','Huile de Sésame','Riz Jasmin','Riz Gluant','Piment Séché','Poivre Blanc','Anis Étoilé','Bâton de Cannelle','Wasabi en Poudre','Sauce Teriyaki','Sauce Hoisin','Miso Blanc','Sauce Piment Doux','Vinaigre de Riz','Feuille de Nori','Perles de Tapioca','Chips de Banane','Noix de Cajou Grillées','Graine de Sésame Doré','Citronnelle Séchée','Feuille de Curry','Concentré de Tomate','Haricot Rouge Azuki','Poudre de Curry Madras','Cumin Moulu','Coriandre Moulue','Curcuma Moulu','Fécule de Tapioca','Beurre de Cacahuète','Sauce Barbecue Coréenne','Encre de Seiche','Bonbon au Durian','Biscuit Coco','Poulet Émietté Séché','Thé Oolong','Sauce Samouraï','Crevette en Saumure','Mélange 5 Épices','Pousse de Bambou','Maïs Mini en Bocal','Litchi au Sirop','Mangue Séchée','Noix de Coco Râpée','Sésame Noir','Moutarde Chinoise','Sauce Prune','Vin de Prune','Huile de Piment','Aubergine Marinée','Nouille de Sarrasin','Galet de Riz Soufflé','Extrait de Vanille','Sirop de Canne','Sucre Candy','Poivre de Sichuan'];
+const SUFFIXES=['','Premium','Sélection','Export','Bio','Grand Chef','Tradition','Économique','Spécial Wok','Déshydraté','en Saumure','au Naturel'];
+const MARQUES=['Eaglobe','ZWL','Fine Cook','Thai Top Choice','Vinawang','Pasco','Hosan','Ottogi','BIBIGO','BEARWIND','JKFOOD','Seaweed Organic Seafood','Marque inconnue','DUCROS','A+HoSan','Golden Bridge','Mekong Foods','Siam Delice','Orient Plus','K Food','Daichi','Lotus Bleu'];
+const PAYS=['Chine','Thaïlande','Vietnam','Corée du Sud','Japon','Inde','France','Philippines','Indonésie','Chili','Corée'];
+const CONDS=['20G x 40','40G x 50','50G x 30','57G x 30','60G x 60','65G x 20','100G x 24','100G x 48','113G x 50','150G x 40','158G x 40','200G x 24','200G x 50','250G x 20','260G x 6','380G x 24','400G x 12','425G x 24','454G x 24','500G x 12','500G x 20','1Kg x 10','2Kg x 6','3L x 6','5L x 4','10L x 2','64Cl x 12','75Cl x 12','Non précisé'];
+function categoriser(nom){
+  const n=nom.toLowerCase();
+  if(n.startsWith('algue')||n.includes('nori'))return 'algue';
+  if(n.startsWith('ail'))return 'ail';
+  if(n.includes('sauce')||n.includes('huile')||n.includes('vinaigre')||n.includes('miso')||n.includes('pâte'))return 'sauce';
+  if(n.includes('nouille')||n.includes('vermicelle'))return 'nouilles';
+  if(n.includes('poivre')||n.includes('curry')||n.includes('cumin')||n.includes('coriandre')||n.includes('curcuma')||n.includes('anis')||n.includes('cannelle')||n.includes('épice')||n.includes('wasabi')||n.includes('piment'))return 'epice';
+  if(n.includes('thé'))return 'the';
+  if(n.includes('riz')&&(n.includes('jasmin')||n.includes('gluant')))return 'riz';
+  return 'conserve';
+}
+const codesUtilises=new Set();
+function codeUnique(){let c;do{c='88'+String(100000+ri(899999));}while(codesUtilises.has(c));codesUtilises.add(c);return c;}
+const CATALOGUE=(function(){
+  const liste=[];
+  REELS.forEach(([nom,marque,pays,code,cond,cat])=>{codesUtilises.add(code);liste.push({nom,marque,pays,code,cond,cat});});
+  const reste=TOTAL_CATALOGUE-liste.length;
+  for(let i=0;i<reste;i++){
+    const base=NOMS[ri(NOMS.length)], suf=SUFFIXES[ri(SUFFIXES.length)];
+    const nom=suf?base+' '+suf:base;
+    liste.push({nom,marque:MARQUES[ri(MARQUES.length)],pays:PAYS[ri(PAYS.length)],code:codeUnique(),cond:CONDS[ri(CONDS.length)],cat:categoriser(nom)});
+  }
+  liste.sort((a,b)=>a.nom.localeCompare(b.nom,'fr')||a.code.localeCompare(b.code));
+  return liste;
+})();
+
+/* ══════════════ BASE DE DONNÉES (localStorage) ══════════════ */
+function lireBDD(cle, defaut){ try{ return JSON.parse(localStorage.getItem(cle)) ?? defaut; }catch(e){ return defaut; } }
+let AJOUTES   = lireBDD('poorleno_ajouts', []);
+let MODIFS    = lireBDD('poorleno_modifs', {});
+let SUPPRIMES = new Set(lireBDD('poorleno_suppr', []));
+function ecrireBDD(cle, val){
+  try{ localStorage.setItem(cle, JSON.stringify(val)); return true; }
+  catch(e){ toast('⚠ Base de données pleine — changement conservé pour la session seulement.'); return false; }
+}
+const persistAjoutes = () => ecrireBDD('poorleno_ajouts', AJOUTES);
+const persistModifs  = () => ecrireBDD('poorleno_modifs', MODIFS);
+const persistSuppr   = () => ecrireBDD('poorleno_suppr', [...SUPPRIMES]);
+let srcCache=null;
+function applyModifs(p){
+  const m=MODIFS[p.code];
+  if(!m) return p;
+  return Object.assign({}, p, m, {codeRef:p.code, modifie:true});
+}
+function toutProduit(){
+  if(!srcCache)
+    srcCache = AJOUTES.concat(CATALOGUE.filter(p=>!SUPPRIMES.has(p.code)).map(applyModifs));
+  return srcCache;
+}
+function invaliderSrc(){ srcCache=null; }
+const refDe = p => p.codeRef || p.code;
+
+/* ---------- Photos ---------- */
+const CAT_STYLE={
+  abalone:['🦪','#f6e7d3','#e8c9a0'],algue:['🌿','#dcefe2','#a9d4b8'],
+  ail:['🧄','#f2ecdc','#ddd0ac'],agar:['🍶','#e8eef2','#c2d4de'],
+  vin:['🍾','#f4e3e3','#ddb8b8'],snack:['🍘','#fdeeda','#f3cd9a'],
+  sauce:['🥫','#fbe9e0','#eebf9f'],nouilles:['🍜','#fdf3dd','#eeda9e'],
+  epice:['🌶️','#f9e5dd','#e5a98c'],riz:['🍚','#eef1e9','#cfd8c2'],
+  the:['🍵','#e4f0e0','#b5d3a8'],conserve:['🥡','#e9edf2','#c4ceda']};
+function photoSVG(p){
+  const st=CAT_STYLE[p.cat]||CAT_STYLE.conserve;
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${st[1]}"/><stop offset="1" stop-color="${st[2]}"/></linearGradient></defs><rect width="100" height="100" fill="url(#g)"/><text x="50" y="46" font-size="34" text-anchor="middle" dominant-baseline="middle">${st[0]}</text><text x="50" y="80" font-size="13" text-anchor="middle" font-family="Arial" font-weight="bold" fill="#5a6b5e" opacity=".75">${(p.nom[0]||'?').toUpperCase()}</text></svg>`;
+  return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+}
+function photoDe(p){
+  if(p.photo) return p.photo;                       // photo prise dans l'app (BDD)
+  if(PHOTOS[p.code]) return PHOTOS[p.code];         // fichier mappé
+  if(PHOTO_AUTO) return 'img/'+p.code+'.webp';      // img/CODE.webp
+  return photoSVG(p);                               // secours SVG
+}
+function imgFB(img){ img.onerror=null; img.src=img.dataset.fb; }
+
+/* ══════════════════════════════════════════════════════════
+   CODE-BARRES CODE 128 (ISO 15417)
+   Le code-barres encode EXACTEMENT le code produit à 8 chiffres.
+   Table officielle des 107 motifs (Wikipedia / ISO 15417).
+   ══════════════════════════════════════════════════════════ */
+const C128=["11011001100","11001101100","11001100110","10010011000","10010001100",
+"10001001100","10011001000","10011000100","10001100100","11001001000",
+"11001000100","11000100100","10110011100","10011011100","10011001110",
+"10111001100","10011101100","10011100110","11001110010","11001011100",
+"11001001110","11011100100","11001110100","11101101110","11101001100",
+"11100101100","11100100110","11101100100","11100110100","11100110010",
+"11011011000","11011000110","11000110110","10100011000","10001011000",
+"10001000110","10110001000","10001101000","10001100010","11010001000",
+"11000101000","11000100010","10110111000","10110001110","10001101110",
+"10111011000","10111000110","10001110110","11101110110","11010001110",
+"11000101110","11011101000","11011100010","11011101110","11101011000",
+"11101000110","11100010110","11101101000","11101100010","11100011010",
+"11101111010","11001000010","11110001010","10100110000","10100001100",
+"10010110000","10010000110","10000101100","10000100110","10110010000",
+"10110000100","10011010000","10011000010","10000110100","10000110010",
+"11000010010","11001010000","11110111010","11000010100","10001111010",
+"10100111100","10010111100","10010011110","10111100100","10011110100",
+"10011110010","11110100100","11110010100","11110010010","11011011110",
+"11011110110","11110110110","10101111000","10100011110","10001011110",
+"10111101000","10111100010","11110101000","11110100010","10111011110",
+"10111101110","11101011110","11110101110",
+"11010000100","11010010000","11010011100","1100011101011"];
+
+function bits128(code){
+  const d = String(code);
+  let start, vals;
+  if(/^\d+$/.test(d) && d.length % 2 === 0){
+    start = 105;                                   // Start Code C : 2 chiffres/symbole
+    vals = [];
+    for(let i=0;i<d.length;i+=2) vals.push(+d.slice(i,i+2));
+  }else{
+    start = 104;                                   // Start Code B
+    vals = Array.from(d, c=>c.charCodeAt(0)-32);
+  }
+  let s = start;                                   // checksum pondéré mod 103
+  for(let i=0;i<vals.length;i++) s += vals[i]*(i+1);
+  const seq = [start].concat(vals, [s%103, 106]);  // + symbole de stop
+  return seq.map(v=>C128[v]).join('');
+}
+function barcodeSVG(code, h, e){
+  h=h||56; e=e||1.7;
+  const bits=bits128(code), qz=10;                 // zone calme : 10 modules
+  let rects='', x=qz, i=0;
+  while(i<bits.length){
+    if(bits[i]==='1'){let j=i;while(j<bits.length&&bits[j]==='1')j++;
+      rects+=`<rect x="${(x*e).toFixed(2)}" y="0" width="${((j-i)*e).toFixed(2)}" height="${h}"/>`;x+=j-i;i=j;}
+    else{x++;i++;}
+  }
+  const w=(bits.length+2*qz)*e, ht=h+16;
+  return `<svg width="${Math.round(w)}" height="${ht+14}" viewBox="0 0 ${w.toFixed(2)} ${ht+14}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"><g fill="#1c2b2d">${rects}</g><text x="${(w/2).toFixed(2)}" y="${ht+11}" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="12" letter-spacing="2.5" fill="#1c2b2d">${esc(code)}</text></svg>`;
+}
+function miniBarcodeSVG(code){
+  const bits=bits128(code);
+  let rects='',x=0,i=0;
+  while(i<bits.length){
+    if(bits[i]==='1'){let j=i;while(j<bits.length&&bits[j]==='1')j++;
+      rects+=`<rect x="${x}" y="0" width="${j-i}" height="18"/>`;x+=j-i;i=j;}
+    else{x++;i++;}
+  }
+  const w=bits.length+20;                          // 10 modules de zone calme de chaque côté
+  return `<svg class="bc" width="${w}" height="18" viewBox="-10 0 ${w} 18" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" fill="#37474a" opacity=".85" aria-hidden="true">${rects}</svg>`;
+}
+
+/* ---------- État ---------- */
+let vue=[], nbAffiches=PAGE_INITIALE;
+let sessionDeverrouillee=(()=>{try{return sessionStorage.getItem('poorleno_unlock')==='1';}catch(e){return false;}})();
+let photoTemporaire=null, camStream=null, pwdCallback=null;
+let produitCourant=null, modeEdition=null, aSupprimer=null;
+
+function majScroll(){
+  const ouvert=['ficheOverlay','addOverlay','pwdOverlay','delOverlay','camScreen'].some(id=>$(id).classList.contains('open'));
+  document.body.classList.toggle('no-scroll',ouvert);
+}
+
+/* ---------- Rendu catalogue ---------- */
+function carteHTML(p,idx){
+  const src=photoDe(p), fb=photoSVG(p);
+  return `<article class="card" onclick="ouvrirFiche(${idx})">
+    <div class="thumb"><img src="${src}" data-fb="${fb}" onerror="imgFB(this)" alt="" width="64" height="64" loading="lazy" decoding="async"></div>
+    <div class="c-body">
+      <div class="c-name">${esc(p.nom)}${p.nouveau?'<span class="badge-new">Nouveau</span>':''}${p.modifie?'<span class="badge-mod">Modifié</span>':''}</div>
+      <div class="c-meta">${esc(p.marque)} · ${esc(p.pays)}</div>
+      <div class="c-bottom">
+        <span class="c-code">${p.code}</span>
+        ${miniBarcodeSVG(p.code)}
+        <span class="c-pack">${esc(p.cond)}</span>
+      </div>
+    </div>
+  </article>`;
+}
+function renduListe(reset){
+  const total=toutProduit().length;
+  if(reset){listEl.innerHTML='';nbAffiches=0;}
+  const debut=reset?0:listEl.childElementCount;
+  const fin=Math.min(nbAffiches+(reset?PAGE_INITIALE:PAGE_PLUS), vue.length);
+  let html='';
+  for(let i=debut;i<fin;i++)html+=carteHTML(vue[i],i);
+  if(reset)listEl.innerHTML=html;else listEl.insertAdjacentHTML('beforeend',html);
+  nbAffiches=fin;
+  const restants=vue.length-fin;
+  moreBtn.style.display=restants>0?'block':'none';
+  moreBtn.textContent=`Afficher plus (${fmtN(restants)} restants)`;
+  $('empty').style.display=vue.length===0?'block':'none';
+  $('rCount').textContent=vue.length!==total?`${fmtN(vue.length)} résultat${vue.length>1?'s':''}`:'';
+  $('rTotal').textContent=`${fmtN(total)} références au catalogue`;
+}
+function afficherPlus(){renduListe(false);}
+const listEl=$('list'), moreBtn=$('moreBtn'), qEl=$('q');
+
+/* ---------- Recherche / rafraîchissement ---------- */
+function filtrer(t){
+  const src=toutProduit();
+  if(!t) return src.slice();
+  const digits=t.replace(/\D/g,'');
+  return src.filter(p=>p.nom.toLowerCase().includes(t)||p.marque.toLowerCase().includes(t)||
+    p.pays.toLowerCase().includes(t)||(digits&&p.code.includes(digits)));
+}
+function rafraichir(){
+  invaliderSrc();
+  vue=filtrer(qEl.value.trim().toLowerCase());
+  renduListe(true);
+}
+let tSearch;
+qEl.addEventListener('input',()=>{
+  clearTimeout(tSearch);
+  tSearch=setTimeout(()=>{ vue=filtrer(qEl.value.trim().toLowerCase()); renduListe(true); },120);
+});
+
+/* ---------- Fiche produit : photo + infos + code-barres ensemble ---------- */
+function ouvrirFiche(idx){
+  const p=vue[idx];if(!p)return;
+  produitCourant=p;
+  $('fichePhoto').innerHTML=`<img src="${photoDe(p)}" data-fb="${photoSVG(p)}" onerror="imgFB(this)" alt="${esc(p.nom)}">`;
+  $('ficheInfo').innerHTML=`
+    <div class="irow"><span class="k">Nom du produit</span><span class="v">${esc(p.nom)}</span></div>
+    <div class="irow"><span class="k">Marque</span><span class="v">${esc(p.marque)}</span></div>
+    <div class="irow"><span class="k">Pays d'origine</span><span class="v">${esc(p.pays)}</span></div>
+    <div class="irow"><span class="k">Code produit</span><span class="v mono">${p.code}</span></div>
+    <div class="irow"><span class="k">Conditionnement</span><span class="v">${esc(p.cond)}</span></div>`;
+  $('ficheBarcode').innerHTML=`<div class="bc-title">Code-barres Code 128 · identique au code produit</div>${barcodeSVG(p.code,56,1.7)}`;
+  $('ficheOverlay').classList.add('open');majScroll();
+}
+function fermerFiche(){$('ficheOverlay').classList.remove('open');majScroll();}
+
+/* ---------- Modification (protégée : PsP) ---------- */
+function demanderModifier(){
+  if(!produitCourant)return;
+  demanderAcces(()=>ouvrirEdition(produitCourant));
+}
+function ouvrirEdition(p){
+  modeEdition=p;
+  photoTemporaire=null;
+  $('addTitle').textContent='Modifier le produit';
+  $('saveLbl').textContent='Enregistrer les modifications';
+  $('btnBackAdd').textContent='Annuler';
+  $('addStepper').style.display='none';
+  $('chipImg').src=photoDe(p);
+  $('chipSub').textContent=p.photo?'Photo actuelle · enregistrée en base':'Visuel actuel · changez-le si besoin';
+  $('iNom').value=p.nom;
+  $('iMarque').value=p.marque==='Marque inconnue'?'':p.marque;
+  $('iPays').value=[...$('iPays').options].some(o=>o.value===p.pays)?p.pays:'';
+  $('iCode').value=p.code;
+  $('iCond').value=p.cond==='Non précisé'?'':p.cond;
+  ['fNom','fCode'].forEach(id=>$(id).classList.remove('show-err'));
+  $('iCode').classList.remove('err');
+  verifierCode(false);
+  $('addStep1').classList.add('hidden');
+  $('addStep2').classList.remove('hidden');
+  fermerFiche();
+  $('addOverlay').classList.add('open');majScroll();
+}
+
+/* ---------- Suppression (protégée : PsP) ---------- */
+function demanderSupprimer(){
+  if(!produitCourant)return;
+  demanderAcces(()=>{
+    aSupprimer=produitCourant;
+    $('delTxt').innerHTML=`<b>« ${esc(aSupprimer.nom)} »</b> (code ${aSupprimer.code}) sera définitivement supprimé de la base de données. Cette action est irréversible.`;
+    $('delOverlay').classList.add('open');majScroll();
+  });
+}
+function fermerSuppr(){$('delOverlay').classList.remove('open');aSupprimer=null;majScroll();}
+function confirmerSuppression(){
+  const p=aSupprimer;if(!p)return;
+  if(p.nouveau){
+    AJOUTES=AJOUTES.filter(x=>x!==p);
+    persistAjoutes();
+  }else{
+    SUPPRIMES.add(refDe(p));
+    delete MODIFS[refDe(p)];
+    persistSuppr();persistModifs();
+  }
+  fermerSuppr();fermerFiche();
+  rafraichir();
+  toast('Produit supprimé de la base de données.');
+}
+
+/* ---------- Synchronisation (au démarrage) ---------- */
+function synchroniser(){
+  const s=$('syncScreen');s.classList.remove('hide');
+  const total=toutProduit().length,depart=performance.now();
+  function tick(t){
+    const p=Math.min((t-depart)/1300,1);
+    $('syncCount').innerHTML=`<b>${fmtN(Math.floor(total*(1-Math.pow(1-p,3))))}</b> références au catalogue`;
+    if(p<1)requestAnimationFrame(tick);
+    else setTimeout(()=>{s.classList.add('hide');rafraichir();},320);
+  }
+  requestAnimationFrame(tick);
+}
+
+/* ---------- Accès protégé : PsP, une seule fois ---------- */
+function demanderAcces(cb){
+  if(sessionDeverrouillee){cb();return;}
+  pwdCallback=cb;
+  $('iPwd').value='';$('pwdErr').classList.remove('show');
+  $('pwdOverlay').classList.add('open');majScroll();
+  setTimeout(()=>$('iPwd').focus(),100);
+}
+function deverrouiller(){
+  if($('iPwd').value===MOT_DE_PASSE){
+    sessionDeverrouillee=true;
+    try{sessionStorage.setItem('poorleno_unlock','1');}catch(e){}
+    fermerPwd();
+    if(pwdCallback){const cb=pwdCallback;pwdCallback=null;cb();}
+  }else{
+    const er=$('pwdErr');er.classList.remove('show');void er.offsetWidth;er.classList.add('show');
+    $('iPwd').select();
+  }
+}
+function fermerPwd(){$('pwdOverlay').classList.remove('open');pwdCallback=null;majScroll();}
+function togglePwd(){const i=$('iPwd');i.type=i.type==='password'?'text':'password';}
+$('iPwd').addEventListener('keydown',e=>{if(e.key==='Enter')deverrouiller();});
+
+/* ---------- Ajout de produit (photo → informations → base) ---------- */
+function demanderAjout(){
+  demanderAcces(()=>{
+    modeEdition=null;
+    reinitAjout();
+    $('addTitle').textContent='Ajouter un produit';
+    $('saveLbl').textContent='Enregistrer';
+    $('btnBackAdd').textContent='Retour';
+    $('addStepper').style.display='flex';
+    $('addOverlay').classList.add('open');majScroll();
+  });
+}
+function fermerAjout(){$('addOverlay').classList.remove('open');majScroll();}
+function addBack(){ if(modeEdition) fermerAjout(); else addGoStep(1); }
+function reinitAjout(){
+  photoTemporaire=null;
+  ['iNom','iMarque','iCode','iCond'].forEach(id=>$(id).value='');
+  $('iPays').value='';
+  $('fNom').classList.remove('show-err');
+  $('fCode').classList.remove('show-err');
+  $('iCode').classList.remove('err','ok');
+  $('eanPreview').classList.remove('show');
+  viderPhotoZone();addGoStep(1);
+}
+function viderPhotoZone(){
+  const z=$('photoZone');z.classList.remove('has-photo');
+  z.innerHTML=`<svg class="pz-icon" viewBox="0 0 24 24" fill="none" stroke="#8fa0a2" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><p><b>Aucune photo pour l'instant.</b><br>Utilisez le bouton ci-dessous.</p>`;
+  $('rowReprendre').style.display='none';
+  $('rowCam').style.display='flex';
+}
+function afficherPhotoPrise(dataUrl){
+  photoTemporaire=dataUrl;
+  const z=$('photoZone');z.classList.add('has-photo');
+  z.innerHTML=`<img src="${dataUrl}" alt="Photo du produit">`;
+  $('rowCam').style.display='none';
+  $('rowReprendre').style.display='flex';
+}
+function reprendrePhoto(){viderPhotoZone();ouvrirCameraAjout();}
+function changerPhoto(){
+  if(modeEdition) ouvrirCameraAjout();
+  else { addGoStep(1); ouvrirCameraAjout(); }
+}
+function addGoStep(n){
+  $('addStep1').classList.toggle('hidden',n!==1);
+  $('addStep2').classList.toggle('hidden',n!==2);
+  $('st1').className='step '+(n===1?'active':'done');
+  $('st2').className='step '+(n===2?'active':'');
+  $('stLine').className='step-line'+(n===2?' done':'');
+  if(n===2&&photoTemporaire)$('chipImg').src=photoTemporaire;
+  if(n===1&&!photoTemporaire)viderPhotoZone();
+}
+
+/* ---------- Caméra (protégée : PsP) ---------- */
+const fileInput=$('fileInput');
+function ouvrirCamera(){demanderAcces(()=>lancerCamera());}
+function ouvrirCameraAjout(){lancerCamera();}   // accès déjà déverrouillé
+async function lancerCamera(){
+  fileInput.dataset.retour='1';
+  $('camScreen').classList.add('open');majScroll();
+  $('camError').classList.add('hidden');
+  $('camVideo').style.display='';
+  $('navCam').classList.add('active');$('navCat').classList.remove('active');
+  try{
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw 0;
+    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:1280}},audio:false});
+    $('camVideo').srcObject=camStream;
+  }catch(err){
+    $('camError').classList.remove('hidden');
+    $('camVideo').style.display='none';
+  }
+}
+function fermerCamera(){
+  $('camScreen').classList.remove('open');
+  if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}
+  majScroll();goCatalogue();
+}
+function capturer(){
+  const v=$('camVideo');
+  if(!v.videoWidth){toast('La caméra n\'est pas prête.');return;}
+  const c=$('cropCanvas'),t=Math.min(v.videoWidth,v.videoHeight);
+  c.getContext('2d').drawImage(v,(v.videoWidth-t)/2,(v.videoHeight-t)/2,t,t,0,0,480,480);
+  photoPrete(c.toDataURL('image/jpeg',.78));
+}
+function photoPrete(dataUrl){
+  fermerCamera();
+  if(!$('addOverlay').classList.contains('open')){
+    // photo depuis l'onglet Appareil photo → assistant d'ajout
+    modeEdition=null;reinitAjout();
+    $('addTitle').textContent='Ajouter un produit';
+    $('saveLbl').textContent='Enregistrer';
+    $('btnBackAdd').textContent='Retour';
+    $('addStepper').style.display='flex';
+    $('addOverlay').classList.add('open');majScroll();
+    afficherPhotoPrise(dataUrl);
+    addGoStep(1);
+    return;
+  }
+  photoTemporaire=dataUrl;
+  $('chipImg').src=dataUrl;
+  $('chipSub').textContent='Jpeg · recadrée automatiquement';
+  if(!$('addStep1').classList.contains('hidden')) afficherPhotoPrise(dataUrl);
+}
+fileInput.addEventListener('change',()=>{
+  const f=fileInput.files[0];
+  if(!f){if($('camScreen').classList.contains('open'))fermerCamera();return;}
+  const img=new Image(),url=URL.createObjectURL(f);
+  img.onload=()=>{
+    const c=$('cropCanvas'),t=Math.min(img.width,img.height);
+    c.getContext('2d').drawImage(img,(img.width-t)/2,(img.height-t)/2,t,t,0,0,480,480);
+    URL.revokeObjectURL(url);
+    photoPrete(c.toDataURL('image/jpeg',.78));
+    fileInput.value='';
+  };
+  img.onerror=()=>{URL.revokeObjectURL(url);toast('Image illisible.');};
+  img.src=url;
+});
+
+/* ---------- Validation code produit & aperçu code-barres ---------- */
+const iCode=$('iCode');
+iCode.addEventListener('input',()=>{
+  let d=iCode.value.replace(/\D/g,'');
+  if(d.length>=2&&!d.startsWith('88'))d='88'+d; // préfixe ajouté automatiquement
+  iCode.value=d.slice(0,12);
+  verifierCode(false);
+});
+iCode.addEventListener('blur',()=>verifierCode(true));
+function verifierCode(montreErreur){
+  const d=iCode.value.replace(/\D/g,'');
+  const ok=d.startsWith('88')&&d.length>=6&&d.length<=12;
+  const propre=modeEdition?refDe(modeEdition):null;
+  const existe=ok&&toutProduit().some(p=>p.code===d&&refDe(p)!==propre);
+  const valide=ok&&!existe;
+  iCode.classList.toggle('ok',valide);
+  iCode.classList.toggle('err',montreErreur&&!valide);
+  $('fCode').classList.toggle('show-err',montreErreur&&!valide);
+  if(montreErreur&&!valide)
+    $('codeErr').textContent=existe?'Ce code produit existe déjà dans la base.':'Toujours 88 puis 4 à 10 chiffres.';
+  if(valide){
+    $('eanSvg').innerHTML=barcodeSVG(d,44,1.4);    // code-barres = code produit exact
+    $('eanPreview').classList.add('show');
+  }else $('eanPreview').classList.remove('show');
+  return valide;
+}
+
+/* ---------- Enregistrement dans la base de données ---------- */
+function enregistrerProduit(){
+  let ok=true;
+  if(!$('iNom').value.trim()){$('fNom').classList.add('show-err');ok=false;}
+  else $('fNom').classList.remove('show-err');
+  if(!verifierCode(true))ok=false;
+  if(!ok)return;
+
+  const donnees={
+    nom:$('iNom').value.trim(),
+    marque:$('iMarque').value.trim()||'Marque inconnue',
+    pays:$('iPays').value||'Non précisé',
+    code:iCode.value.replace(/\D/g,''),
+    cond:$('iCond').value.trim()||'Non précisé',
+    cat:categoriser($('iNom').value.trim())
+  };
+  let refSuivi;
+
+  if(modeEdition){
+    /* ===== MODIFICATION ===== */
+    const p=modeEdition;
+    if(p.nouveau){
+      Object.assign(p,donnees);
+      if(photoTemporaire)p.photo=photoTemporaire;
+      persistAjoutes();
+    }else{
+      const m=Object.assign({},MODIFS[refDe(p)]||{},donnees);
+      if(photoTemporaire)m.photo=photoTemporaire;
+      MODIFS[refDe(p)]=m;
+      persistModifs();
     }
+    refSuivi=donnees.code;
+    toast('Modifications enregistrées dans la base de données.');
+  }else{
+    /* ===== AJOUT (photo obligatoire) ===== */
+    if(!photoTemporaire){toast('Prenez d\'abord le produit en photo.');addGoStep(1);return;}
+    const p=Object.assign({photo:photoTemporaire,nouveau:true},donnees);
+    AJOUTES.unshift(p);
+    persistAjoutes();
+    refSuivi=p.code;
+    toast('Produit ajouté à la base de données.');
+  }
 
-    let allProducts = [];
-    const container = document.getElementById('results-container');
-    const input = document.getElementById('search-input');
-    const clearBtn = document.getElementById('clear-btn');
+  fermerAjout();modeEdition=null;
+  rafraichir();
+  window.scrollTo({top:0,behavior:'smooth'});
+  setTimeout(()=>{
+    const i=vue.findIndex(x=>x.code===refSuivi);
+    if(i>=0&&i<nbAffiches)ouvrirFiche(i);
+  },400);
+}
+$('iNom').addEventListener('input',()=>$('fNom').classList.remove('show-err'));
 
-    // --- FONCTION TELECHARGEMENT IMAGES ---
-    async function startCaching() {
-        const btn = document.getElementById('dl-btn-text');
-        const pContainer = document.getElementById('progress-container');
-        const pFill = document.getElementById('progress-fill');
-        const pText = document.getElementById('progress-text');
-        
-        if (!confirm("T�l�charger toutes les images pour le hors-ligne ?\n(Recommand� en Wi-Fi)")) return;
-        
-        btn.style.display = 'none'; 
-        pContainer.style.display = 'block';
-        
-        let count = 0; 
-        const total = allProducts.length;
-        
-        for (const p of allProducts) {
-            let refRaw = findValue(p, ["ref", "code", "art"]) || "000000";
-            let refFormatted = refRaw.toString().trim().replace(/\s/g, '').padStart(6, '0');
-            const url = `images/${refFormatted}.webp`;
-            
-            // On fetch en mode no-cors pour d�clencher le Service Worker
-            try { await fetch(url, { mode: 'no-cors' }); } catch (e) {}
-            
-            count++;
-            if (count % 10 === 0 || count === total) {
-                const percent = Math.round((count / total) * 100);
-                pFill.style.width = percent + "%";
-                pText.innerText = `${count} / ${total}`;
-            }
-        }
-        
-        pText.innerText = "Termin� !";
-        setTimeout(() => { 
-            pContainer.style.display = 'none'; 
-            btn.style.display = 'inline'; 
-            btn.innerText = "Images en cache (OK)"; 
-            btn.style.color = "#28a745"; 
-            btn.style.textDecoration = "none"; 
-        }, 3000);
-    }
+/* ---------- Navigation / toast / clavier ---------- */
+function goCatalogue(){$('navCat').classList.add('active');$('navCam').classList.remove('active');}
+let tToast;
+function toast(msg){
+  $('toastTxt').textContent=msg;$('toast').classList.add('show');
+  clearTimeout(tToast);tToast=setTimeout(()=>$('toast').classList.remove('show'),2800);
+}
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape')return;
+  if($('pwdOverlay').classList.contains('open'))fermerPwd();
+  else if($('delOverlay').classList.contains('open'))fermerSuppr();
+  else if($('camScreen').classList.contains('open'))fermerCamera();
+  else if($('addOverlay').classList.contains('open'))fermerAjout();
+  else if($('ficheOverlay').classList.contains('open'))fermerFiche();
+});
 
-    // --- CHARGEMENT DONNEES ---
-    const csvUrl = "base.csv?t=" + new Date().getTime();
-    Papa.parse(csvUrl, {
-        download: true, header: true, skipEmptyLines: true, delimiter: ";", encoding: "UTF-8",
-        complete: function(results) {
-            allProducts = results.data;
-            container.innerHTML = "";
-            displayProducts(allProducts);
-        },
-        error: function(err) {
-            // Si erreur (Hors ligne), on tente sans le timestamp
-            Papa.parse("base.csv", {
-                download: true, header: true, skipEmptyLines: true, delimiter: ";", encoding: "UTF-8",
-                complete: function(res) {
-                    allProducts = res.data;
-                    container.innerHTML = "";
-                    displayProducts(allProducts);
-                },
-                error: function() {
-                    container.innerHTML = "<p class='loading'>Erreur CSV (Hors ligne). Connectez-vous une fois.</p>";
-                }
-            });
-        }
-    });
-
-    function findValue(item, keywords) {
-        if (!item) return "";
-        const keys = Object.keys(item);
-        for (let key of keys) {
-            const cleanKey = key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-            for (let keyword of keywords) { if (cleanKey.includes(keyword)) return item[key]; }
-        }
-        return "";
-    }
-
-    function normalize(str) {
-        if(!str) return "";
-        return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-    }
-
-    function displayProducts(products) {
-        const displayLimit = products.length > 40 ? 40 : products.length;
-        if(products.length === 0) {
-            container.innerHTML = "<p style='text-align:center;width:100%;font-size:22px;'>Aucun r�sultat.</p>";
-            return;
-        }
-        let html = "";
-        for (let i = 0; i < displayLimit; i++) {
-            const p = products[i];
-            
-            let nom = findValue(p, ["nom", "name", "designation"]) || "-";
-            let marque = findValue(p, ["marque", "brand"]) || "-";
-            let pays = findValue(p, ["pays", "origin"]) || "";
-            let cond = findValue(p, ["cond", "pack"]) || "-";
-            let refRaw = findValue(p, ["ref", "code", "art"]) || "000000";
-            let refFormatted = refRaw.toString().trim().replace(/\s/g, '').padStart(6, '0');
-            const imgSrc = `images/${refFormatted}.webp`;
-
-            html += `
-            <div class="card">
-                <img src="${imgSrc}" class="card-img" onerror="this.onerror=null;this.src='${PLACEHOLDER_IMG}'">
-                <div class="info-line p-name">${nom}</div>
-                <div class="info-line p-brand">${marque} (${pays})</div>
-                
-                <div class="ref-row">
-                    <span class="p-ref">${refFormatted}</span>
-                    <svg class="barcode"
-                        jsbarcode-value="${refFormatted}"
-                        jsbarcode-format="CODE128"
-                        jsbarcode-displayValue="false"
-                        jsbarcode-height="55"
-                        jsbarcode-margin="0">
-                    </svg>
-                </div>
-
-                <div class="info-line p-details">Cond: ${cond}</div>
-            </div>`;
-        }
-
-        html += `
-        <div class="footer-area">
-            <button id="dl-btn-text" class="download-link" onclick="startCaching()">
-                Mettre en cache toutes les images
-            </button>
-            <div id="progress-container">
-                <div id="progress-bar"><div id="progress-fill"></div></div>
-                <div id="progress-text">0%</div>
-            </div>
-            <div class="version-tag">Version 25</div>
-        </div>`;
-        
-        container.innerHTML = html;
-        try { JsBarcode(".barcode").init(); } catch(e) {}
-    }
-
-    function performSearch() {
-        window.scrollTo({top: 0, behavior: 'instant'});
-        const query = normalize(input.value);
-        if (query.length > 0) { clearBtn.style.display = "block"; } 
-        else { clearBtn.style.display = "none"; }
-        const terms = query.split(" ").filter(t => t.length > 0);
-        if (terms.length === 0) { displayProducts(allProducts); return; }
-        const filtered = allProducts.filter(p => {
-            let n = findValue(p, ["nom"]);
-            let m = findValue(p, ["marque"]);
-            let r = findValue(p, ["ref"]);
-            const productString = normalize(`${n} ${m} ${r}`);
-            return terms.every(term => productString.includes(term));
-        });
-        displayProducts(filtered);
-    }
-    input.addEventListener('input', performSearch);
-    clearBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        input.value = "";
-        performSearch();
-        input.focus();
-    });
+/* ---------- Démarrage ---------- */
+$('marquesList').innerHTML=[...new Set(CATALOGUE.map(p=>p.marque))].map(m=>`<option value="${esc(m)}">`).join('');
+viderPhotoZone();
+vue=toutProduit().slice();
+renduListe(true);
+synchroniser();
 </script>
-
 </body>
 </html>
