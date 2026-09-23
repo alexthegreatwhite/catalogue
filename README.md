@@ -18,7 +18,12 @@ PHP, aucune base externe. Tout tourne dans le navigateur.
   blanche avec nouvelles tentatives automatiques.
 - **Date/heure de la dernière MAJ affichées en permanence** dans la barre du
   haut, au centre entre le compteur de produits et le badge de sync
-  (« MAJ : 23/09/2026 19:11 »). L'horodatage est mis à jour à chaque
+  (« MAJ : 23/09/2026 19:11 », **heure de Paris Europe/Paris** sur tous les
+  appareils). Sur **écran étroit** (≤560 px) la barre passe sur deux lignes :
+  compteur + badge sync + menu en haut, **MAJ centrée sur sa propre ligne** ;
+  les libellés deviennent compacts (`3111/3111`, `GitHub`, `Lecture`,
+  `Attente`, `Locale`, `Source KO`) avec le libellé complet en info-bulle —
+  rien n'est tronqué. L'horodatage est mis à jour à chaque
   modification locale et repris du dépôt lors des synchronisations ; il est
   conservé au rechargement.
 - **Mise à jour automatique au lancement** : à chaque ouverture, l'application
