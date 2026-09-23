@@ -462,6 +462,17 @@ function mergeRemote(remote, local, refs) {
   }
   return out;
 }
+/* les suppressions locales sont des tombstones définitifs : jamais écrasés
+   par l'adoption du distant (cache CDN périmé, commit perdu, etc.) */
+function applyTombstones(ch, local) {
+  var r;
+  for (r in (local.del || {})) {
+    ch.del[r] = 1;
+    delete ch.up[r];
+    delete ch.ph[r];
+  }
+  return ch;
+}
 function reconcile() {
   if (!ghCanRead()) { CH = loadLocal(); buildAll(); applyFilter(); updateSyncBadge(); return Promise.resolve(false); }
   var local = loadLocal();
@@ -489,13 +500,17 @@ function reconcile() {
         toast('Le dépôt avait perdu ' + lost.length + ' modification(s) : elles sont repoussées.', 'warn');
         return pushRemote();
       }
-      CH = { up: remote.up || {}, del: remote.del || {}, ph: remote.ph || {} };
+      CH = applyTombstones({ up: remote.up || {}, del: remote.del || {}, ph: remote.ph || {} }, local);
       saveLocal(); setRev(CH);
       buildAll(); applyFilter(); updateSyncBadge();
+      if (ghCanWrite() && JSON.stringify(CH) !== JSON.stringify(remote)) {
+        toast('Suppressions locales absentes du dépôt : repoussées.', 'warn');
+        return pushRemote();
+      }
       toast('Synchronisé : dernières modifications du dépôt adoptées.', 'ok');
       return false;
     }
-    CH = mergeRemote(remote, local, refs);
+    CH = applyTombstones(mergeRemote(remote, local, refs), local);
     saveLocal(); buildAll(); applyFilter(); updateSyncBadge();
     if (ghCanWrite()) {
       toast('Modifications locales fusionnées et poussées sur GitHub.', 'ok');
