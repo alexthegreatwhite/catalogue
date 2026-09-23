@@ -453,17 +453,41 @@ function reconcile() {
   var local = loadLocal();
   return pullRemote().then(function (remote) {
     if (!remote || !remote.up) { CH = local; buildAll(); applyFilter(); updateSyncBadge(); return false; }
-    var refs = diffRefs(local, lastRev());
+    var last = lastRev();
+    var refs = diffRefs(local, last);
     var any = false, k; for (k in refs) { any = true; break; }
     if (!any) {
+      /* GARDE ANTI-RETOUR : le distant doit contenir ce qu'on a poussé.
+         S'il l'a perdu (ou ne l'a jamais reçu), on repousse au lieu d'adopter. */
+      var lost = [], r;
+      if (last) {
+        for (r in (last.up || {})) if (JSON.stringify((remote.up || {})[r] || null) !== JSON.stringify(last.up[r])) lost.push(r);
+        for (r in (last.del || {})) if ((remote.del || {})[r] !== last.del[r]) lost.push(r);
+        for (r in (last.ph || {})) if (JSON.stringify((remote.ph || {})[r] || null) !== JSON.stringify(last.ph[r])) lost.push(r);
+      }
+      if (lost.length && ghCanWrite()) {
+        var allRefs = {}, q;
+        for (q in (last.up || {})) allRefs[q] = 1;
+        for (q in (last.del || {})) allRefs[q] = 1;
+        for (q in (last.ph || {})) allRefs[q] = 1;
+        CH = mergeRemote(remote, last, allRefs);
+        saveLocal(); buildAll(); applyFilter(); updateSyncBadge();
+        toast('Le dépôt avait perdu ' + lost.length + ' modification(s) : elles sont repoussées.', 'warn');
+        return pushRemote();
+      }
       CH = { up: remote.up || {}, del: remote.del || {}, ph: remote.ph || {} };
       saveLocal(); setRev(CH);
-    } else {
-      CH = mergeRemote(remote, local, refs);
-      saveLocal();
+      buildAll(); applyFilter(); updateSyncBadge();
+      toast('Synchronisé : dernières modifications du dépôt adoptées.', 'ok');
+      return false;
     }
-    buildAll(); applyFilter(); updateSyncBadge();
-    if (any && ghCanWrite()) return pushRemote();
+    CH = mergeRemote(remote, local, refs);
+    saveLocal(); buildAll(); applyFilter(); updateSyncBadge();
+    if (ghCanWrite()) {
+      toast('Modifications locales fusionnées et poussées sur GitHub.', 'ok');
+      return pushRemote();
+    }
+    toast('Modifications locales conservées (lecture seule : jeton requis pour pousser).', 'warn');
     return false;
   });
 }
