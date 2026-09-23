@@ -13,7 +13,9 @@ PHP, aucune base externe. Tout tourne dans le navigateur.
 - **Appareil photo** pour ajouter un produit (caméra intégrée en HTTPS, sinon
   appareil photo natif). La photo est **convertie en WebP 360×360**, sujet
   centré fond blanc : strictement le même cadre que toutes les photos du
-  catalogue, dans la liste et dans la fiche.
+  catalogue. **Capture fiabilisée** : attente d'une vraie trame vidéo
+  (`readyState >= 2`), prise sur `requestAnimationFrame`, contrôle anti-photo
+  blanche avec nouvelles tentatives automatiques.
 - **Ajout / modification / suppression** de **tous** les produits.
 - **Mot de passe `PsP`** demandé **une seule fois par session** pour ajouter / modifier / supprimer.
 - **Code-barres Code 128** du code (8 chiffres, préfixe 88) : sur **chaque carte

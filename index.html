@@ -739,10 +739,53 @@ function stopCam() {
   if (camStream) { camStream.getTracks().forEach(function (t) { t.stop(); }); camStream = null; }
   $('#cam').hidden = true;
 }
+/* Le canvas reste blanc si l'on dessine avant qu'une trame vidéo existe
+   (readyState < 2) : on attend une vraie trame, on capture sur rAF, et on
+   vérifie que l'image n'est pas uniformément blanche avant d'accepter. */
+function frameIsBlank(ctx, w, h) {
+  try {
+    var pts = [[0.1,0.1],[0.5,0.1],[0.9,0.1],[0.1,0.5],[0.5,0.5],[0.9,0.5],[0.1,0.9],[0.5,0.9],[0.9,0.9]];
+    var white = 0;
+    for (var i = 0; i < pts.length; i++) {
+      var d = ctx.getImageData(Math.floor(w * pts[i][0]), Math.floor(h * pts[i][1]), 1, 1).data;
+      if (d[0] > 245 && d[1] > 245 && d[2] > 245) white++;
+    }
+    return white === pts.length;
+  } catch (e) { return false; }   // si lecture pixels impossible, on accepte
+}
+function grabFrame(v, attempt, cb) {
+  if (attempt > 8) { cb(null); return; }
+  if (!v.videoWidth || v.readyState < 2) {
+    setTimeout(function () { grabFrame(v, attempt + 1, cb); }, 120);
+    return;
+  }
+  var raf = window.requestAnimationFrame || function (f) { setTimeout(f, 16); };
+  raf(function () {
+    var c = document.createElement('canvas');
+    c.width = IMG; c.height = IMG;
+    var x = c.getContext('2d');
+    x.fillStyle = '#fff'; x.fillRect(0, 0, IMG, IMG);
+    var pad = 8, max = IMG - pad * 2;
+    var r = Math.min(max / v.videoWidth, max / v.videoHeight, 1);
+    var w = Math.max(1, Math.round(v.videoWidth * r)), h = Math.max(1, Math.round(v.videoHeight * r));
+    try { x.drawImage(v, (IMG - w) / 2, (IMG - h) / 2, w, h); } catch (e) { cb(null); return; }
+    if (frameIsBlank(x, IMG, IMG)) {
+      setTimeout(function () { grabFrame(v, attempt + 1, cb); }, 150);
+      return;
+    }
+    var url = c.toDataURL('image/webp', 0.8);
+    if (url.indexOf('data:image/webp') !== 0) url = c.toDataURL('image/jpeg', 0.8);
+    cb(url);
+  });
+}
 function shoot() {
-  var v = $('#cv'); if (!v.videoWidth) { toast('Caméra pas prête.', 'warn'); return; }
-  photoData = squareWebp(v);
-  stopCam(); showPhoto();
+  var v = $('#cv');
+  if (!v.videoWidth) { toast('Caméra pas prête.', 'warn'); return; }
+  grabFrame(v, 0, function (url) {
+    if (!url) { toast('Photo vide : réessayez (la caméra n’était pas prête).', 'err'); return; }
+    photoData = url;
+    stopCam(); showPhoto();
+  });
 }
 
 /* ---------------- export / import (secours) ---------------- */
