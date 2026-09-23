@@ -46,8 +46,14 @@ PHP, aucune base externe. Tout tourne dans le navigateur.
    `data/userdb.json` ; les autres appareils l'adoptent au chargement.
    **Réconciliation** : un appareil sans modif locale adopte toujours le
    distant ; s'il a des modifs locales récentes, elles sont fusionnées (local
-   prioritaire sur ses refs) puis poussées. Badges : `sync : GitHub` /
-   `sync : lecture GitHub` / `sync : en attente` / `sync : locale`.
+   prioritaire sur ses refs) puis poussées. **Garde anti-retour** : si le
+   dépôt a perdu des modifications déjà poussées, elles sont repoussées au lieu
+   d'être écrasées. Le sha du fichier est lu sur la branche d'écriture et un
+   conflit « does not match » déclenche un retry automatique.
+   Badges : `sync : GitHub` / `sync : lecture GitHub` / `sync : en attente` /
+   `sync : source introuvable` / `sync : locale`. Menu **⋯ → ️ Source des
+   données / diagnostic** : dépôt résolu, dernière URL lue, résultat, nombre de
+   mods locales.
 
 Sans configuration GitHub, tout reste fonctionnel en local (localStorage) ;
 menu **⋯ → Exporter / Importer** permet alors un transfert manuel par fichier

@@ -370,17 +370,19 @@ function pullRemote() {
   return tryNext();
 }
 /* commit le fichier data/userdb.json dans le dépôt (création ou mise à jour) */
-function pushRemote() {
+function pushRemote(attempt) {
   if (!ghCanWrite() || ghBusy) return Promise.resolve(false);
   ghBusy = true;
   var g = ghEffective();
-  return fetch(ghApiUrl(), { headers: { 'Authorization': 'Bearer ' + g.token, 'Accept': 'application/vnd.github+json' } })
+  var branch = g.branch || 'main';
+  /* le sha doit être lu SUR LA BRANCHE où l'on écrit, sinon conflit "does not match" */
+  return fetch(ghApiUrl() + '?ref=' + encodeURIComponent(branch), { headers: { 'Authorization': 'Bearer ' + g.token, 'Accept': 'application/vnd.github+json' } })
     .then(function (r) { return r.ok ? r.json() : { sha: null }; })
     .then(function (meta) {
       var body = {
         message: 'Catalogue: ' + new Date().toISOString(),
         content: b64utf8(JSON.stringify(CH)),
-        branch: g.branch || 'main'
+        branch: branch
       };
       if (meta && meta.sha) body.sha = meta.sha;
       return fetch(ghApiUrl(), {
@@ -390,15 +392,27 @@ function pushRemote() {
       });
     })
     .then(function (r) {
+      if (!r.ok) {
+        return r.json().then(function (e) {
+          var msg = (e && e.message) || ('HTTP ' + r.status);
+          /* sha périmé malgré tout : on relit le sha et on réessaie une fois */
+          if ((r.status === 409 || r.status === 422) && /match/i.test(msg) && (!attempt || attempt < 2)) {
+            ghBusy = false;
+            return pushRemote((attempt || 0) + 1);
+          }
+          throw new Error(msg);
+        });
+      }
       ghBusy = false;
-      if (!r.ok) return r.json().then(function (e) { throw new Error((e && e.message) || ('HTTP ' + r.status)); });
       dirty = false; setRev(CH); updateSyncBadge();
       toast('Base mise à jour sur GitHub.', 'ok');
       return true;
     })
     .catch(function (e) {
       ghBusy = false; dirty = true; updateSyncBadge();
-      toast('Enregistré localement ; sync GitHub en attente (' + e.message + ').', 'warn');
+      var m = String(e.message || e);
+      if (/403|401|permission|resource not accessible/i.test(m)) m = 'jeton refusé ou permission Contents manquante';
+      toast('Enregistré localement ; sync GitHub en attente (' + m + ').', 'warn');
       return false;
     });
 }
