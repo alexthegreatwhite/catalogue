@@ -4,6 +4,9 @@ Application de catalogue produits **100 % statique** : aucun serveur, aucun
 PHP, aucune base externe. Tout tourne dans le navigateur.
 
 - **3 111 produits** et **3 068 photos** embarqués (mêmes produits que l'ancien site).
+- **Classement TOUJOURS alphabétique** : un produit créé ou modifié se range
+  automatiquement à sa place (insensible aux accents) ; l'écran est amené sur
+  lui (ou sa position est indiquée).
 - **Barre de recherche en haut** (nom, marque, pays, code, conditionnement), insensible aux accents.
 - **Responsive** : 2 colonnes sur mobile, **3 colonnes sur PC** (largeur
   contenue) ; fiche produit en modale centrée sur PC, panneau bas sur mobile.

@@ -295,12 +295,22 @@ function setBase(rows) {
   $('#dl-p').innerHTML = Object.keys(p).sort().map(function (v) { return '<option value="' + esc(v) + '"></option>'; }).join('');
 }
 function imgOf(ref) { return CH.ph[ref] || ('img/' + ref + '.webp'); }
+/* Classement TOUJOURS alphabétique (nom insensible aux accents, puis code) :
+   un produit créé ou modifié se range à sa place, jamais "en tête". */
+function cmpAlpha(a, b) {
+  var x = norm(a.nom), y = norm(b.nom);
+  if (x < y) return -1;
+  if (x > y) return 1;
+  return a.ref < b.ref ? -1 : (a.ref > b.ref ? 1 : 0);
+}
 function buildAll() {
   ALL = [];
   function mk(x) { return { ref: x.r, nom: x.n, marque: x.m || '', pays: x.p || '', cond: x.c || '', img: imgOf(x.r), base: !!BASEMAP[x.r] }; }
-  var up = Object.keys(CH.up), i;
-  for (i = up.length - 1; i >= 0; i--) if (!CH.del[up[i]]) ALL.push(mk(CH.up[up[i]]));
-  for (i = 0; i < BASE.length; i++) { var r = BASE[i]; if (CH.del[r.r] || CH.up[r.r]) continue; ALL.push(mk(r)); }
+  var seen = {}, i;
+  for (i = 0; i < BASE.length; i++) { var r = BASE[i]; if (CH.del[r.r] || CH.up[r.r]) continue; seen[r.r] = 1; ALL.push(mk(r)); }
+  var up = Object.keys(CH.up);
+  for (i = 0; i < up.length; i++) if (!CH.del[up[i]]) ALL.push(mk(CH.up[up[i]]));
+  ALL.sort(cmpAlpha);
 }
 function hay(p) { if (!p._h) p._h = norm(p.nom + ' ' + p.marque + ' ' + p.pays + ' ' + p.ref + ' ' + p.cond); return p._h; }
 
@@ -369,7 +379,6 @@ function applyFilter() {
   else {
     var nt = terms.map(norm);
     VIEW = ALL.filter(function (p) { var h = hay(p); for (var i = 0; i < nt.length; i++) if (h.indexOf(nt[i]) < 0) return false; return true; });
-    if (nt.length === 1) VIEW = VIEW.slice().sort(function (a, b) { return (norm(b.ref).indexOf(nt[0]) === 0) - (norm(a.ref).indexOf(nt[0]) === 0); });
   }
   shown = 0; grid.innerHTML = ''; renderMore();
   $('#cnt').textContent = VIEW.length + ' / ' + ALL.length + ' produits';
@@ -388,6 +397,21 @@ function renderMore() {
   shown = i; grid.insertAdjacentHTML('beforeend', html);
 }
 function findProd(ref) { for (var i = 0; i < ALL.length; i++) if (ALL[i].ref === ref) return ALL[i]; return null; }
+/* affiche (rend) le produit à sa place alphabétique et amène l'écran dessus */
+function revealRef(ref) {
+  var idx = -1, i;
+  for (i = 0; i < VIEW.length; i++) if (VIEW[i].ref === ref) { idx = i; break; }
+  if (idx < 0) return;
+  /* rend par lots jusqu'au produit, borné pour rester léger */
+  var guard = 0;
+  while (shown <= idx && guard < 10) { renderMore(); guard++; }
+  var el = grid.querySelector('.cd[data-r="' + ref + '"]');
+  if (el) {
+    if (el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  } else {
+    toast('Rangé à sa place alphabétique (position ' + (idx + 1) + ' sur ' + VIEW.length + ').', 'ok');
+  }
+}
 
 /* ---------------- panneaux ---------------- */
 function open(id) { $(id).hidden = false; $('#scrim').hidden = false; document.body.style.overflow = 'hidden'; }
@@ -540,8 +564,8 @@ function saveForm() {
   closeAll();
   highlight = ref;
   commitCH();
+  revealRef(ref);
   setTimeout(function () { highlight = ''; var el = grid.querySelector('.new'); if (el) el.classList.remove('new'); }, 3000);
-  window.scrollTo({ top: 0, behavior: 'smooth' });
   toast(editing ? 'Produit modifié' + (ghConfigured() ? ' et synchronisé.' : '.') : 'Produit ajouté' + (ghConfigured() ? ' et synchronisé.' : '.'), 'ok');
   editing = null;
 }
