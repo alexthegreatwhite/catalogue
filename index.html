@@ -147,6 +147,7 @@ label input:focus{border-color:var(--br);background:#fff}
   <div id="mnu" class="mnu" hidden>
     <button id="m-sync" type="button">🔄 Synchroniser avec GitHub</button>
     <button id="m-gh" type="button">⚙️ Base GitHub (owner/repo/jeton)</button>
+    <button id="m-info" type="button">ℹ️ Source des données / diagnostic</button>
     <button id="m-exp" type="button">⬇️ Exporter mes modifications</button>
     <button id="m-imp" type="button">⬆️ Importer des modifications</button>
   </div>
@@ -346,11 +347,27 @@ function ghConfigured() { return ghCanWrite(); }
 function ghRawUrl() { var g = ghEffective(); return 'https://raw.githubusercontent.com/' + g.owner + '/' + g.repo + '/' + g.branch + '/data/userdb.json'; }
 function ghApiUrl() { var g = ghEffective(); return 'https://api.github.com/repos/' + g.owner + '/' + g.repo + '/contents/data/userdb.json'; }
 
+var K_SRC = 'catpro.src.v1';
+function setSrc(info) { try { localStorage.setItem(K_SRC, JSON.stringify(info)); } catch (e) {} }
+function getSrc() { try { return JSON.parse(localStorage.getItem(K_SRC)) || null; } catch (e) { return null; } }
+/* lit data/userdb.json ; essaie plusieurs branches si celle par défaut échoue */
 function pullRemote() {
   if (!ghCanRead()) return Promise.resolve(null);
-  return fetch(ghRawUrl() + '?t=' + Date.now(), { headers: { 'Accept': 'application/json' } })
-    .then(function (r) { if (!r.ok) return null; return r.json(); })
-    .catch(function () { return null; });
+  var g = ghEffective();
+  var branches = [g.branch, 'main', 'master', 'gh-pages'].filter(function (b, i, a) { return b && a.indexOf(b) === i; });
+  var i = 0;
+  function tryNext() {
+    if (i >= branches.length) { setSrc({ ok: false, url: ghRawUrl(), at: Date.now() }); return Promise.resolve(null); }
+    var url = 'https://raw.githubusercontent.com/' + g.owner + '/' + g.repo + '/' + branches[i] + '/data/userdb.json?t=' + Date.now();
+    i++;
+    return fetch(url, { headers: { 'Accept': 'application/json' } })
+      .then(function (r) {
+        if (!r.ok) return tryNext();
+        return r.json().then(function (j) { setSrc({ ok: true, url: url.split('?')[0], at: Date.now() }); return j; });
+      })
+      .catch(function () { return tryNext(); });
+  }
+  return tryNext();
 }
 /* commit le fichier data/userdb.json dans le dépôt (création ou mise à jour) */
 function pushRemote() {
@@ -388,10 +405,22 @@ function pushRemote() {
 function updateSyncBadge() {
   var el = $('#syncst');
   if (!el) return;
+  var src = getSrc();
   if (!ghCanRead()) { el.textContent = 'sync : locale'; el.className = 'sy off'; }
-  else if (!ghCanWrite()) { el.textContent = 'sync : lecture GitHub'; el.className = 'sy on'; }
-  else if (dirty) { el.textContent = 'sync : en attente'; el.className = 'sy warn'; }
-  else { el.textContent = 'sync : GitHub'; el.className = 'sy on'; }
+  else if (ghCanWrite() && !dirty) { el.textContent = 'sync : GitHub'; el.className = 'sy on'; }
+  else if (ghCanWrite() && dirty) { el.textContent = 'sync : en attente'; el.className = 'sy warn'; }
+  else if (src && src.ok === false) { el.textContent = 'sync : source introuvable'; el.className = 'sy warn'; }
+  else { el.textContent = 'sync : lecture GitHub'; el.className = 'sy on'; }
+}
+/* diagnostic lisible : d'où viennent les données, dernier résultat */
+function syncInfo() {
+  var g = ghEffective(), src = getSrc();
+  var lines = [];
+  lines.push('Dépôt résolu : ' + (g.owner && g.repo ? (g.owner + '/' + g.repo + ' (' + g.branch + ')') : 'aucun (hors GitHub Pages ?)'));
+  lines.push('Écriture : ' + (ghCanWrite() ? 'jeton configuré' : 'NON (lecture seule)'));
+  lines.push(src ? ('Dernière lecture : ' + (src.ok ? 'OK ' : 'ÉCHEC ') + (src.url || '') + ' (' + new Date(src.at).toLocaleTimeString() + ')') : 'Dernière lecture : jamais');
+  lines.push('Modifications locales : ' + Object.keys(CH.up).length + ' ajouts/édits, ' + Object.keys(CH.del).length + ' suppressions, ' + Object.keys(CH.ph).length + ' photos');
+  return lines.join('\n');
 }
 function lastRev() { try { return JSON.parse(localStorage.getItem(K_REV)); } catch (e) { return null; } }
 function setRev(ch) { try { localStorage.setItem(K_REV, JSON.stringify(ch)); } catch (e) {} }
@@ -725,6 +754,7 @@ function init() {
   $('#m-exp').onclick = exportCH;
   $('#m-imp').onclick = function () { $('#fimp').click(); };
   $('#m-sync').onclick = function () { if (!ghCanRead()) { openGH(); return; } reconcile(); };
+  $('#m-info').onclick = function () { toast(syncInfo(), 'warn'); };
   $('#m-gh').onclick = openGH;
   $('#fimp').onchange = function (e) { if (e.target.files[0]) importCH(e.target.files[0]); e.target.value = ''; };
 
