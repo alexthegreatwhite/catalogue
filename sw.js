@@ -20,7 +20,10 @@ self.addEventListener('fetch', function (e) {
     }));
     return;
   }
-  e.respondWith(fetch(e.request).then(function (res) {
+  /* navigation + index.html : toujours frais (bypasse le cache HTTP/CDN),
+     le cache ne sert que de repli hors-ligne */
+  var isNav = e.request.mode === 'navigate' || /index\.html$/.test(u.pathname);
+  e.respondWith(fetch(e.request, isNav ? { cache: 'no-store' } : undefined).then(function (res) {
     var cp = res.clone(); caches.open(V).then(function (c) { c.put(e.request, cp); });
     return res;
   }).catch(function () { return caches.match(e.request); }));

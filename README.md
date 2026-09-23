@@ -16,6 +16,21 @@ PHP, aucune base externe. Tout tourne dans le navigateur.
   catalogue. **Capture fiabilisée** : attente d'une vraie trame vidéo
   (`readyState >= 2`), prise sur `requestAnimationFrame`, contrôle anti-photo
   blanche avec nouvelles tentatives automatiques.
+- **Date/heure de la dernière MAJ affichées en permanence** dans la barre du
+  haut, au centre entre le compteur de produits et le badge de sync
+  (« MAJ : 23/09/2026 19:11 »). L'horodatage est mis à jour à chaque
+  modification locale et repris du dépôt lors des synchronisations ; il est
+  conservé au rechargement.
+- **Mise à jour automatique au lancement** : à chaque ouverture, l'application
+  relit `index.html` **sans cache HTTP** (via le service worker) et le fichier
+  `data/userdb.json` (cache cassé par horodatage). Si une nouvelle version du
+  catalogue ou des modifications du dépôt sont présentes, elles sont appliquées
+  immédiatement avec un message (« Nouvelle version du catalogue chargée »,
+  « Mise à jour appliquée : N élément(s) reçu(s) du dépôt »).
+- **Envois GitHub accélérés** : sha du fichier mis en cache (un aller-retour de
+  moins par envoi), envois groupés (modifications rapprochées = un seul
+  commit), confirmation locale immédiate (« Enregistré — envoi en
+  arrière-plan ») et envoi forcé à la fermeture de l'onglet.
 - **Position de scroll préservée** : après un ajout, une modification, une
   suppression, une synchro ou un import, la page reste exactement où vous
   étiez (seule une recherche remonte en haut, volontairement).
