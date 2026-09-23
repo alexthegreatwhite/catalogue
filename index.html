@@ -213,6 +213,9 @@ label input:focus{border-color:var(--br);background:#fff}
 <section id="ghs" class="sheet sheet-sm" hidden role="dialog" aria-modal="true" aria-label="Base GitHub">
   <div class="fhead"><strong>Base de données GitHub</strong><button id="gx" type="button" class="x" aria-label="Fermer"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button></div>
   <div class="fbody">
+    <p class="hint" id="g-auto" hidden>✅ Dépôt détecté automatiquement depuis l'adresse du site :
+    rien à renseigner pour <b>lire</b> les dernières modifications. Laissez les
+    champs vides pour utiliser cette détection.</p>
     <p class="hint">Chaque ajout / modification / suppression est poussé en temps réel
     dans <b>data/userdb.json</b> du dépôt (commit via l'API GitHub). Créez un
     jeton personnel <i>fine-grained</i> limité à ce dépôt, permission
@@ -255,7 +258,7 @@ label input:focus{border-color:var(--br);background:#fff}
 var $ = function (s) { return document.querySelector(s); };
 var PAGE = 60, IMG = 360;
 var PASS_HASH = 2299394076, SEL = 'cataloguepro.v2:';
-var K_OK = 'catpro.ok', K_CH = 'catpro.ch.v1', K_GH = 'catpro.gh.v1';
+var K_OK = 'catpro.ok', K_CH = 'catpro.ch.v1', K_GH = 'catpro.gh.v1', K_REV = 'catpro.rev.v1';
 var PLACEHOLDER = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 360"><rect width="360" height="360" fill="#fff"/>' +
   '<g fill="none" stroke="#c3cddb" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">' +
@@ -315,21 +318,45 @@ function buildAll() {
 function hay(p) { if (!p._h) p._h = norm(p.nom + ' ' + p.marque + ' ' + p.pays + ' ' + p.ref + ' ' + p.cond); return p._h; }
 
 /* ---------------- GitHub : base partagée en temps réel ---------------- */
-function ghConfigured() { var g = gh(); return !!(g.owner && g.repo && g.token); }
-function ghRawUrl() { var g = gh(); return 'https://raw.githubusercontent.com/' + g.owner + '/' + g.repo + '/' + (g.branch || 'main') + '/data/userdb.json'; }
-function ghApiUrl() { var g = gh(); return 'https://api.github.com/repos/' + g.owner + '/' + g.repo + '/contents/data/userdb.json'; }
+/* Sur GitHub Pages (https://PROPRIO.github.io/DEPOT/), le dépôt est déduit de
+   l'URL : aucun réglage nécessaire pour LIRE sur n'importe quel appareil.
+   Les réglages manuels (⋯ → Base GitHub) priment sur l'auto-détection. */
+function ghAuto() {
+  var h = location.hostname, a = { owner: '', repo: '', branch: '' };
+  if (/\.github\.io$/.test(h)) {
+    a.owner = h.replace(/\.github\.io$/, '');
+    var seg = location.pathname.split('/').filter(Boolean)[0] || '';
+    a.repo = seg || (a.owner + '.github.io');
+    a.branch = 'main';
+  }
+  return a;
+}
+function ghEffective() {
+  var m = gh(), a = ghAuto();
+  return {
+    owner: m.owner || a.owner,
+    repo: m.repo || a.repo,
+    branch: m.branch || a.branch || 'main',
+    token: m.token || ''
+  };
+}
+function ghCanRead() { var g = ghEffective(); return !!(g.owner && g.repo); }   // dépôt public : lecture sans jeton
+function ghCanWrite() { var g = ghEffective(); return !!(g.owner && g.repo && g.token); } // écriture : jeton requis
+function ghConfigured() { return ghCanWrite(); }
+function ghRawUrl() { var g = ghEffective(); return 'https://raw.githubusercontent.com/' + g.owner + '/' + g.repo + '/' + g.branch + '/data/userdb.json'; }
+function ghApiUrl() { var g = ghEffective(); return 'https://api.github.com/repos/' + g.owner + '/' + g.repo + '/contents/data/userdb.json'; }
 
 function pullRemote() {
-  if (!ghConfigured()) return Promise.resolve(null);
+  if (!ghCanRead()) return Promise.resolve(null);
   return fetch(ghRawUrl() + '?t=' + Date.now(), { headers: { 'Accept': 'application/json' } })
     .then(function (r) { if (!r.ok) return null; return r.json(); })
     .catch(function () { return null; });
 }
 /* commit le fichier data/userdb.json dans le dépôt (création ou mise à jour) */
 function pushRemote() {
-  if (!ghConfigured() || ghBusy) return Promise.resolve(false);
+  if (!ghCanWrite() || ghBusy) return Promise.resolve(false);
   ghBusy = true;
-  var g = gh();
+  var g = ghEffective();
   return fetch(ghApiUrl(), { headers: { 'Authorization': 'Bearer ' + g.token, 'Accept': 'application/vnd.github+json' } })
     .then(function (r) { return r.ok ? r.json() : { sha: null }; })
     .then(function (meta) {
@@ -348,7 +375,7 @@ function pushRemote() {
     .then(function (r) {
       ghBusy = false;
       if (!r.ok) return r.json().then(function (e) { throw new Error((e && e.message) || ('HTTP ' + r.status)); });
-      dirty = false; updateSyncBadge();
+      dirty = false; setRev(CH); updateSyncBadge();
       toast('Base mise à jour sur GitHub.', 'ok');
       return true;
     })
@@ -361,15 +388,61 @@ function pushRemote() {
 function updateSyncBadge() {
   var el = $('#syncst');
   if (!el) return;
-  if (!ghConfigured()) { el.textContent = 'sync : locale'; el.className = 'sy off'; }
+  if (!ghCanRead()) { el.textContent = 'sync : locale'; el.className = 'sy off'; }
+  else if (!ghCanWrite()) { el.textContent = 'sync : lecture GitHub'; el.className = 'sy on'; }
   else if (dirty) { el.textContent = 'sync : en attente'; el.className = 'sy warn'; }
   else { el.textContent = 'sync : GitHub'; el.className = 'sy on'; }
+}
+function lastRev() { try { return JSON.parse(localStorage.getItem(K_REV)); } catch (e) { return null; } }
+function setRev(ch) { try { localStorage.setItem(K_REV, JSON.stringify(ch)); } catch (e) {} }
+function chGet(ch, r) { return JSON.stringify({ u: (ch.up || {})[r] || null, d: (ch.del || {})[r] || null, p: (ch.ph || {})[r] || null }); }
+/* refs que le navigateur local a changées depuis la dernière sync */
+function diffRefs(local, last) {
+  var refs = {}, k;
+  var a = last || emptyCH();
+  var keys = {};
+  for (k in local.up) keys[k] = 1; for (k in local.del) keys[k] = 1; for (k in local.ph) keys[k] = 1;
+  for (k in a.up) keys[k] = 1; for (k in a.del) keys[k] = 1; for (k in a.ph) keys[k] = 1;
+  for (k in keys) if (chGet(local, k) !== chGet(a, k)) refs[k] = 1;
+  return refs;
+}
+/* fusionne : base = distant, puis on reapplique les modifs locales récentes */
+function mergeRemote(remote, local, refs) {
+  var out = { up: {}, del: {}, ph: {} }, k;
+  for (k in (remote.up || {})) out.up[k] = remote.up[k];
+  for (k in (remote.del || {})) out.del[k] = remote.del[k];
+  for (k in (remote.ph || {})) out.ph[k] = remote.ph[k];
+  for (k in refs) {
+    if (local.up && local.up[k]) out.up[k] = local.up[k]; else delete out.up[k];
+    if (local.del && local.del[k]) out.del[k] = local.del[k]; else delete out.del[k];
+    if (local.ph && local.ph[k]) out.ph[k] = local.ph[k]; else delete out.ph[k];
+  }
+  return out;
+}
+function reconcile() {
+  if (!ghCanRead()) { CH = loadLocal(); buildAll(); applyFilter(); updateSyncBadge(); return Promise.resolve(false); }
+  var local = loadLocal();
+  return pullRemote().then(function (remote) {
+    if (!remote || !remote.up) { CH = local; buildAll(); applyFilter(); updateSyncBadge(); return false; }
+    var refs = diffRefs(local, lastRev());
+    var any = false, k; for (k in refs) { any = true; break; }
+    if (!any) {
+      CH = { up: remote.up || {}, del: remote.del || {}, ph: remote.ph || {} };
+      saveLocal(); setRev(CH);
+    } else {
+      CH = mergeRemote(remote, local, refs);
+      saveLocal();
+    }
+    buildAll(); applyFilter(); updateSyncBadge();
+    if (any && ghCanWrite()) return pushRemote();
+    return false;
+  });
 }
 /* applique une modification locale puis pousse sur GitHub */
 function commitCH() {
   saveLocal(); dirty = true; updateSyncBadge();
   buildAll(); applyFilter();
-  if (ghConfigured()) pushRemote();
+  if (ghCanWrite()) pushRemote();
 }
 
 /* ---------------- rendu ---------------- */
@@ -611,34 +684,34 @@ function importCH(file) {
 
 /* ---------------- paramètres GitHub ---------------- */
 function openGH() {
-  var g = gh();
+  var g = gh(), e = ghEffective(), auto = ghAuto();
   $('#g-owner').value = g.owner || ''; $('#g-repo').value = g.repo || '';
-  $('#g-branch').value = g.branch || 'main'; $('#g-token').value = g.token || '';
+  $('#g-branch').value = g.branch || ''; $('#g-token').value = g.token || '';
+  $('#g-owner').placeholder = e.owner || 'mon-compte';
+  $('#g-repo').placeholder = e.repo || 'catalogue';
+  $('#g-branch').placeholder = e.branch || 'main';
+  $('#g-auto').hidden = !(auto.owner && auto.repo);
   open('#ghs');
 }
 function saveGHForm() {
   saveGH({ owner: $('#g-owner').value.trim(), repo: $('#g-repo').value.trim(), branch: $('#g-branch').value.trim() || 'main', token: $('#g-token').value.trim() });
   closeAll(); updateSyncBadge();
-  if (ghConfigured()) { toast('Sync GitHub activée : prochaine modif poussée immédiatement.', 'ok'); if (dirty) pushRemote(); }
-  else toast('Sync GitHub désactivée : modifications en local.', 'warn');
+  if (ghCanWrite()) { toast('Sync GitHub activée (lecture + écriture).', 'ok'); reconcile(); }
+  else if (ghCanRead()) { toast('Lecture GitHub activée (ajoutez un jeton pour écrire).', 'ok'); reconcile(); }
+  else toast('Sync désactivée : modifications en local.', 'warn');
 }
 
 /* ---------------- init ---------------- */
 function init() {
   setBase(window.CATALOG || []);
   CH = loadLocal();
-  dirty = !!localStorage.getItem(K_CH);
+  dirty = JSON.stringify(CH) !== JSON.stringify(lastRev() || emptyCH());
   buildAll(); applyFilter(); updateSyncBadge();
 
-  /* adopte la base GitHub au chargement si aucune modif locale en attente */
-  pullRemote().then(function (remote) {
-    if (remote && remote.up && !dirty) {
-      CH = { up: remote.up || {}, del: remote.del || {}, ph: remote.ph || {} };
-      saveLocal(); buildAll(); applyFilter(); updateSyncBadge();
-    } else if (remote && remote.up && dirty) {
-      pushRemote();   // pousse les modifs locales en attente
-    }
-  });
+  /* réconciliation : le distant gagne, sauf pour les refs modifiées localement
+     depuis la dernière sync (ainsi un appareil qui n'a rien changé adopte
+     toujours les modifications des autres appareils) */
+  reconcile();
 
   var qi = $('#q'), t;
   qi.addEventListener('input', function () {
@@ -651,7 +724,7 @@ function init() {
   document.addEventListener('click', function () { $('#mnu').hidden = true; });
   $('#m-exp').onclick = exportCH;
   $('#m-imp').onclick = function () { $('#fimp').click(); };
-  $('#m-sync').onclick = function () { if (!ghConfigured()) { openGH(); return; } pushRemote(); };
+  $('#m-sync').onclick = function () { if (!ghCanRead()) { openGH(); return; } reconcile(); };
   $('#m-gh').onclick = openGH;
   $('#fimp').onchange = function (e) { if (e.target.files[0]) importCH(e.target.files[0]); e.target.value = ''; };
 

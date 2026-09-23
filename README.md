@@ -33,17 +33,25 @@ PHP, aucune base externe. Tout tourne dans le navigateur.
 | Repli local | localStorage `catpro.ch.v1` si pas de jeton / hors-ligne, poussé au retour |
 
 ### Sync GitHub temps réel
-1. Créez un jeton **fine-grained** limité à ce dépôt, permission
-   **Contents : Read and write**.
-2. Dans l'app : menu **⋯ → Base GitHub** → propriétaire / dépôt / branche / jeton.
-3. Chaque ajout / modification / suppression est alors **commité immédiatement**
-   dans `data/userdb.json` ; les autres appareils le lisent au chargement.
-   Badge : `sync : GitHub` / `sync : en attente` / `sync : locale`.
+1. **Aucun réglage n'est nécessaire pour consulter** : quand le site est servi
+   par GitHub Pages (`https://PROPRIO.github.io/DEPOT/`), l'application
+   **détecte toute seule** le propriétaire et le dépôt depuis l'URL et lit
+   `data/userdb.json`. Sur n'importe quel appareil, ouvrez le site : vous
+   voyez les dernières modifications. Badge `sync : lecture GitHub`.
+2. Sur l'appareil **qui modifie** : créez un jeton **fine-grained** limité à ce
+   dépôt, permission **Contents : Read and write**, puis menu **⋯ → Base
+   GitHub** → collez uniquement le **jeton** (propriétaire/dépôt sont déjà
+   détectés). Badge `sync : GitHub`.
+3. Chaque ajout / modification / suppression est **commité immédiatement** dans
+   `data/userdb.json` ; les autres appareils l'adoptent au chargement.
+   **Réconciliation** : un appareil sans modif locale adopte toujours le
+   distant ; s'il a des modifs locales récentes, elles sont fusionnées (local
+   prioritaire sur ses refs) puis poussées. Badges : `sync : GitHub` /
+   `sync : lecture GitHub` / `sync : en attente` / `sync : locale`.
 
-Comme GitHub Pages est statique, les modifications sont **locales à chaque
-navigateur**. Pour les transférer d'un appareil à l'autre : menu **⋯ →
-Exporter mes modifications** (fichier JSON), puis **⋯ → Importer** sur l'autre
-appareil.
+Sans configuration GitHub, tout reste fonctionnel en local (localStorage) ;
+menu **⋯ → Exporter / Importer** permet alors un transfert manuel par fichier
+JSON.
 
 ## Mots de passe
 
