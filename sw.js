@@ -1,6 +1,6 @@
 /* Service worker minimal : coquille + données en cache, images cache-first borné. */
 var V = 'catpro-v1';
-var SHELL = ['./', 'index.html', 'manifest.webmanifest'];
+var SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png'];
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(V).then(function (c) { return c.addAll(SHELL); }).then(function () { return self.skipWaiting(); }));
 });
