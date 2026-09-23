@@ -6,7 +6,10 @@ PHP, aucune base externe. Tout tourne dans le navigateur.
 - **3 111 produits** et **3 068 photos** embarqués (mêmes produits que l'ancien site).
 - **Barre de recherche en haut** (nom, marque, pays, code, conditionnement), insensible aux accents.
 - **Responsive** : grille adaptée mobile (2 colonnes) et PC (jusqu'à 8+).
-- **Appareil photo** pour ajouter un produit (caméra intégrée en HTTPS, sinon appareil photo natif).
+- **Appareil photo** pour ajouter un produit (caméra intégrée en HTTPS, sinon
+  appareil photo natif). La photo est **convertie en WebP 360×360**, sujet
+  centré fond blanc : strictement le même cadre que toutes les photos du
+  catalogue, dans la liste et dans la fiche.
 - **Ajout / modification / suppression** de **tous** les produits.
 - **Mot de passe `PsP`** demandé **une seule fois par session** pour ajouter / modifier / supprimer.
 - **Code-barres Code 128** du code (8 chiffres, préfixe 88) sur chaque fiche.
@@ -20,9 +23,17 @@ PHP, aucune base externe. Tout tourne dans le navigateur.
 | Donnée | Emplacement |
 |---|---|
 | Catalogue de base | **inline dans `index.html`** (`window.CATALOG`, clés courtes `r,n,m,p,c`) — une seule requête, marche aussi en `file://` |
-| Photos | `img/<code>.jpg` (360 px, ~9 Ko chacune) |
-| Ajouts / modifications / suppressions | **localStorage du navigateur** (`catpro.ch.v1`) |
-| Photos prises | localStorage (`catpro.ch.v1`, section `ph`, en JPEG 600 px) |
+| Photos catalogue | `img/<code>.webp` (carrés 360×360, centrés, fond blanc) |
+| **Base partagée** (ajouts/modifs/suppressions + photos) | **`data/userdb.json` dans le dépôt GitHub**, mis à jour **en temps réel** par l'app via l'API GitHub (commit) |
+| Repli local | localStorage `catpro.ch.v1` si pas de jeton / hors-ligne, poussé au retour |
+
+### Sync GitHub temps réel
+1. Créez un jeton **fine-grained** limité à ce dépôt, permission
+   **Contents : Read and write**.
+2. Dans l'app : menu **⋯ → Base GitHub** → propriétaire / dépôt / branche / jeton.
+3. Chaque ajout / modification / suppression est alors **commité immédiatement**
+   dans `data/userdb.json` ; les autres appareils le lisent au chargement.
+   Badge : `sync : GitHub` / `sync : en attente` / `sync : locale`.
 
 Comme GitHub Pages est statique, les modifications sont **locales à chaque
 navigateur**. Pour les transférer d'un appareil à l'autre : menu **⋯ →
@@ -62,7 +73,8 @@ index.html            FICHIER AUTO-SUFFISANT généré : CSS + JS + catalogue
                       (3 111 produits) inline → une seule requête
 sw.js                 service worker (cache coquille + images)
 manifest.webmanifest  installation en application
-img/                  3 068 photos (360 px)
+img/                  3 068 photos WebP carrées 360x360
+data/userdb.json      base partagée (commitée par l'app via l'API GitHub)
 ```
 
 Les **sources lisibles/modifiables** sont dans `tools/src/`
@@ -74,7 +86,8 @@ Les **sources lisibles/modifiables** sont dans `tools/src/`
 
 Depuis la racine du projet (hors GitHub) :
 ```bash
-python3 tools/build_github.py     # reconstruit data/products.json + img/
+python3 tools/build_github.py     # régénère app/index.html (+ data/userdb.json si absent)
+python3 tools/normalize_images.py   # (une fois) carrés 360x360 WebP
 ```
 
 ## Tester
