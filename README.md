@@ -16,6 +16,9 @@ PHP, aucune base externe. Tout tourne dans le navigateur.
   catalogue. **Capture fiabilisée** : attente d'une vraie trame vidéo
   (`readyState >= 2`), prise sur `requestAnimationFrame`, contrôle anti-photo
   blanche avec nouvelles tentatives automatiques.
+- **Position de scroll préservée** : après un ajout, une modification, une
+  suppression, une synchro ou un import, la page reste exactement où vous
+  étiez (seule une recherche remonte en haut, volontairement).
 - **Ajout / modification / suppression** de **tous** les produits.
 - **Mot de passe `PsP`** demandé **une seule fois par session** pour ajouter / modifier / supprimer.
 - **Code-barres Code 128** du code (8 chiffres, préfixe 88) : sur **chaque carte

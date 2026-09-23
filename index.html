@@ -475,10 +475,10 @@ function applyTombstones(ch, local) {
   return ch;
 }
 function reconcile() {
-  if (!ghCanRead()) { CH = loadLocal(); buildAll(); applyFilter(); updateSyncBadge(); return Promise.resolve(false); }
+  if (!ghCanRead()) { CH = loadLocal(); buildAll(); applyFilter(true); updateSyncBadge(); return Promise.resolve(false); }
   var local = loadLocal();
   return pullRemote().then(function (remote) {
-    if (!remote || !remote.up) { CH = local; buildAll(); applyFilter(); updateSyncBadge(); return false; }
+    if (!remote || !remote.up) { CH = local; buildAll(); applyFilter(true); updateSyncBadge(); return false; }
     var last = lastRev();
     var refs = diffRefs(local, last);
     var any = false, k; for (k in refs) { any = true; break; }
@@ -497,13 +497,13 @@ function reconcile() {
         for (q in (last.del || {})) allRefs[q] = 1;
         for (q in (last.ph || {})) allRefs[q] = 1;
         CH = mergeRemote(remote, last, allRefs);
-        saveLocal(); buildAll(); applyFilter(); updateSyncBadge();
+        saveLocal(); buildAll(); applyFilter(true); updateSyncBadge();
         toast('Le dépôt avait perdu ' + lost.length + ' modification(s) : elles sont repoussées.', 'warn');
         return pushRemote();
       }
       CH = applyTombstones({ up: remote.up || {}, del: remote.del || {}, ph: remote.ph || {} }, local);
       saveLocal(); setRev(CH);
-      buildAll(); applyFilter(); updateSyncBadge();
+      buildAll(); applyFilter(true); updateSyncBadge();
       if (ghCanWrite() && JSON.stringify(CH) !== JSON.stringify(remote)) {
         toast('Suppressions locales absentes du dépôt : repoussées.', 'warn');
         return pushRemote();
@@ -512,7 +512,7 @@ function reconcile() {
       return false;
     }
     CH = applyTombstones(mergeRemote(remote, local, refs), local);
-    saveLocal(); buildAll(); applyFilter(); updateSyncBadge();
+    saveLocal(); buildAll(); applyFilter(true); updateSyncBadge();
     if (ghCanWrite()) {
       toast('Modifications locales fusionnées et poussées sur GitHub.', 'ok');
       return pushRemote();
@@ -522,14 +522,15 @@ function reconcile() {
   });
 }
 /* applique une modification locale puis pousse sur GitHub */
-function commitCH() {
+function commitCH(keep) {
   saveLocal(); dirty = true; updateSyncBadge();
-  buildAll(); applyFilter();
+  buildAll(); applyFilter(keep);
   if (ghCanWrite()) pushRemote();
 }
 
 /* ---------------- rendu ---------------- */
-function applyFilter() {
+function applyFilter(keep) {
+  var y = keep ? (window.scrollY || window.pageYOffset || 0) : 0;
   var terms = query ? query.split(/\s+/) : [];
   if (!terms.length) VIEW = ALL;
   else {
@@ -537,6 +538,16 @@ function applyFilter() {
     VIEW = ALL.filter(function (p) { var h = hay(p); for (var i = 0; i < nt.length; i++) if (h.indexOf(nt[i]) < 0) return false; return true; });
   }
   shown = 0; grid.innerHTML = ''; renderMore();
+  if (keep && y > 0) {
+    /* restaure la position : rend assez d'éléments pour que la hauteur suive */
+    window.scrollTo(0, y);
+    var guard = 0;
+    while (shown < VIEW.length && guard < 6 &&
+           document.body.offsetHeight < y + window.innerHeight + 300) {
+      renderMore(); guard++;
+    }
+    window.scrollTo(0, y);
+  }
   $('#cnt').textContent = VIEW.length + ' / ' + ALL.length + ' produits';
 }
 function card(p) {
@@ -554,19 +565,14 @@ function renderMore() {
 }
 function findProd(ref) { for (var i = 0; i < ALL.length; i++) if (ALL[i].ref === ref) return ALL[i]; return null; }
 /* affiche (rend) le produit à sa place alphabétique et amène l'écran dessus */
+/* ne déplace JAMAIS l'écran : signale juste la position alphabétique si le
+   produit n'est pas dans la zone actuellement rendue */
 function revealRef(ref) {
   var idx = -1, i;
   for (i = 0; i < VIEW.length; i++) if (VIEW[i].ref === ref) { idx = i; break; }
   if (idx < 0) return;
-  /* rend par lots jusqu'au produit, borné pour rester léger */
-  var guard = 0;
-  while (shown <= idx && guard < 10) { renderMore(); guard++; }
   var el = grid.querySelector('.cd[data-r="' + ref + '"]');
-  if (el) {
-    if (el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  } else {
-    toast('Rangé à sa place alphabétique (position ' + (idx + 1) + ' sur ' + VIEW.length + ').', 'ok');
-  }
+  if (!el) toast('Rangé à sa place alphabétique (position ' + (idx + 1) + ' sur ' + VIEW.length + ').', 'ok');
 }
 
 /* ---------------- panneaux ---------------- */
@@ -651,7 +657,7 @@ function delProd(p) {
   if (!confirm('Supprimer « ' + p.nom + ' » (' + p.ref + ') ?')) return;
   delete CH.up[p.ref]; delete CH.ph[p.ref];
   if (p.base) CH.del[p.ref] = 1;
-  closeAll(); commitCH();
+  closeAll(); commitCH(true);
   toast('Produit supprimé' + (ghConfigured() ? ' et synchronisé.' : '.'), 'ok');
 }
 
@@ -719,7 +725,7 @@ function saveForm() {
   if (photoData) CH.ph[ref] = photoData;
   closeAll();
   highlight = ref;
-  commitCH();
+  commitCH(true);
   revealRef(ref);
   setTimeout(function () { highlight = ''; var el = grid.querySelector('.new'); if (el) el.classList.remove('new'); }, 3000);
   toast(editing ? 'Produit modifié' + (ghConfigured() ? ' et synchronisé.' : '.') : 'Produit ajouté' + (ghConfigured() ? ' et synchronisé.' : '.'), 'ok');
@@ -802,7 +808,7 @@ function importCH(file) {
       var d = JSON.parse(fr.result);
       if (!d || !d.up) throw 0;
       CH = { up: d.up || {}, del: d.del || {}, ph: d.ph || {} };
-      commitCH(); toast('Modifications importées.', 'ok');
+      commitCH(true); toast('Modifications importées.', 'ok');
     } catch (e) { toast('Fichier invalide.', 'err'); }
   };
   fr.readAsText(file);
@@ -832,7 +838,7 @@ function init() {
   setBase(window.CATALOG || []);
   CH = loadLocal();
   dirty = JSON.stringify(CH) !== JSON.stringify(lastRev() || emptyCH());
-  buildAll(); applyFilter(); updateSyncBadge();
+  buildAll(); applyFilter(true); updateSyncBadge();
 
   /* réconciliation : le distant gagne, sauf pour les refs modifiées localement
      depuis la dernière sync (ainsi un appareil qui n'a rien changé adopte
