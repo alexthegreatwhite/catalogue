@@ -16,10 +16,17 @@ PHP, aucune base externe. Tout tourne dans le navigateur.
   catalogue. **Capture fiabilisée** : attente d'une vraie trame vidéo
   (`readyState >= 2`), prise sur `requestAnimationFrame`, contrôle anti-photo
   blanche avec nouvelles tentatives automatiques.
+- **Restauration des suppressions** : menu **⋯ → ♻️ Restaurer les produits
+  supprimés** réaffiche tous les produits supprimés (localement puis partout
+  après synchronisation). Le diagnostic (⋯ → ️) précise désormais le nombre
+  de modifications **non poussées**.
 - **Date/heure de la dernière MAJ affichées en permanence** dans la barre du
   haut, au centre entre le compteur de produits et le badge de sync
   (« MAJ : 23/09/2026 19:11 », **heure de Paris Europe/Paris** sur tous les
-  appareils). Sur **écran étroit** (≤560 px) la barre passe sur deux lignes :
+  appareils). **La valeur affichée est la date/heure du dernier commit GitHub
+  de `data/userdb.json`** (horodatage serveur GitHub, exact), relue après
+  chaque envoi réussi et à chaque adoption de modifications. Sur **écran
+  étroit** (≤560 px) la barre passe sur deux lignes :
   compteur + badge sync + menu en haut, **MAJ centrée sur sa propre ligne** ;
   les libellés deviennent compacts (`3111/3111`, `GitHub`, `Lecture`,
   `Attente`, `Locale`, `Source KO`) avec le libellé complet en info-bulle —
@@ -32,10 +39,14 @@ PHP, aucune base externe. Tout tourne dans le navigateur.
   catalogue ou des modifications du dépôt sont présentes, elles sont appliquées
   immédiatement avec un message (« Nouvelle version du catalogue chargée »,
   « Mise à jour appliquée : N élément(s) reçu(s) du dépôt »).
-- **Envois GitHub accélérés** : sha du fichier mis en cache (un aller-retour de
-  moins par envoi), envois groupés (modifications rapprochées = un seul
-  commit), confirmation locale immédiate (« Enregistré — envoi en
-  arrière-plan ») et envoi forcé à la fermeture de l'onglet.
+- **Envois GitHub accélérés et auto-réparants** : sha mis en cache (un
+  aller-retour de moins), mais **invalidé dès qu'un conflit « does not match »
+  survient** (un sha neuf est alors relu, jusqu'à 3 tentatives) ; envois
+  groupés (modifications rapprochées = un seul commit) ; confirmation locale
+  immédiate ; envoi forcé à la fermeture de l'onglet ; **nouvelle tentative
+  automatique toutes les 15 s** tant qu'un envoi est en attente, plus une
+  relance au retour en ligne / au focus. Un « sync en attente » se résout donc
+  tout seul dès que le conflit disparaît.
 - **Position de scroll préservée** : après un ajout, une modification, une
   suppression, une synchro ou un import, la page reste exactement où vous
   étiez (seule une recherche remonte en haut, volontairement).
