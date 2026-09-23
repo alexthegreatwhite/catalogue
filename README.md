@@ -5,14 +5,16 @@ PHP, aucune base externe. Tout tourne dans le navigateur.
 
 - **3 111 produits** et **3 068 photos** embarqués (mêmes produits que l'ancien site).
 - **Barre de recherche en haut** (nom, marque, pays, code, conditionnement), insensible aux accents.
-- **Responsive** : grille adaptée mobile (2 colonnes) et PC (jusqu'à 8+).
+- **Responsive** : 2 colonnes sur mobile, **3 colonnes sur PC** (largeur
+  contenue) ; fiche produit en modale centrée sur PC, panneau bas sur mobile.
 - **Appareil photo** pour ajouter un produit (caméra intégrée en HTTPS, sinon
   appareil photo natif). La photo est **convertie en WebP 360×360**, sujet
   centré fond blanc : strictement le même cadre que toutes les photos du
   catalogue, dans la liste et dans la fiche.
 - **Ajout / modification / suppression** de **tous** les produits.
 - **Mot de passe `PsP`** demandé **une seule fois par session** pour ajouter / modifier / supprimer.
-- **Code-barres Code 128** du code (8 chiffres, préfixe 88) sur chaque fiche.
+- **Code-barres Code 128** du code (8 chiffres, préfixe 88) : sur **chaque carte
+  du catalogue** et, en compact, sur chaque fiche.
 - **Ultra-léger** : ~14 Ko de JS, ~6 Ko de CSS, zéro dépendance, zéro framework ;
   un seul fichier HTML auto-suffisant (~305 Ko, gzip ~90 Ko) qui marche aussi
   en `file://` et dans les aperçus (CSS/JS inline, aucune ressource externe).

@@ -38,9 +38,9 @@ header{position:sticky;top:0;z-index:20;background:#ffffffe8;backdrop-filter:blu
 .mnu button:hover{background:var(--bg)}
 
 /* Grille responsive */
-main{padding:12px 12px 96px;max-width:1600px;margin:0 auto}
+main{padding:12px 12px 96px;max-width:1080px;margin:0 auto}
 #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
-@media(min-width:900px){#grid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}}
+@media(min-width:760px){#grid{grid-template-columns:repeat(3,1fr);gap:16px}}
 .cd{background:var(--sf);border:1px solid var(--ln);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column;cursor:pointer}
 .cd:active{transform:scale(.985)}
 /* CADRE PHOTO STRICT : hauteur fixe, fond blanc, image carrée centrée, rien d'autre */
@@ -48,6 +48,8 @@ main{padding:12px 12px 96px;max-width:1600px;margin:0 auto}
 @media(min-width:900px){.cd .im{height:200px}}
 .cd .im img{width:100%;height:100%;object-fit:contain;object-position:center}
 .cd .bd{padding:9px 10px 11px;display:flex;flex-direction:column;gap:4px}
+.cd .bcbar{margin-top:2px}
+.cd .bcbar svg{display:block;width:100%;height:24px;fill:#0c1526}
 .cd .nm{font-weight:700;font-size:14.5px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .cd .mk{color:var(--t2);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cd .rf{font-family:ui-monospace,"Courier New",monospace;font-weight:800;font-size:15px;color:var(--rd);background:#fff0f2;border:1.5px solid #f6c9d0;border-radius:8px;padding:2px 8px;align-self:flex-start;letter-spacing:.03em}
@@ -62,7 +64,7 @@ main{padding:12px 12px 96px;max-width:1600px;margin:0 auto}
 /* Voile + panneaux */
 .scrim{position:fixed;inset:0;background:#090f1c80;backdrop-filter:blur(2px);z-index:40}
 .sheet{position:fixed;left:0;right:0;bottom:0;z-index:50;background:var(--sf);border-radius:20px 20px 0 0;max-height:92dvh;display:flex;flex-direction:column;box-shadow:0 -12px 40px #0c152633}
-@media(min-width:820px){.sheet{left:50%;transform:translateX(-50%);width:min(520px,94vw);bottom:24px;border-radius:20px;max-height:86dvh}}
+@media(min-width:820px){.sheet{left:50%;top:50%;transform:translate(-50%,-50%);bottom:auto;width:min(560px,94vw);border-radius:20px;max-height:min(88dvh,820px)}}
 .sheet-sm{max-width:440px}
 @media(min-width:820px){.sheet-sm{left:50%;transform:translateX(-50%);width:min(440px,94vw)}}
 .fhead{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid var(--ln)}
@@ -92,7 +94,7 @@ label input:focus{border-color:var(--br);background:#fff}
 .phbtns .b{flex:1;padding:9px}
 
 /* Fiche produit : structuree, compacte */
-#sheetbody{display:flex;flex-direction:column;min-height:0}
+#sheetbody{display:flex;flex-direction:column;min-height:0;overflow:hidden}
 /* cadre photo strict : hauteur fixe, fond blanc, image centrée, rien d'autre */
 .dhim{height:200px;flex:none;background:#fff;border-bottom:1px solid var(--ln);overflow:hidden}
 .dhim img{width:100%;height:100%;object-fit:contain;object-position:center}
@@ -376,6 +378,7 @@ function card(p) {
   return '<article class="cd' + (p.ref === highlight ? ' new' : '') + '" data-r="' + esc(p.ref) + '" tabindex="0">' +
     '<div class="im"><img src="' + esc(p.img) + '" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.src=\'' + PLACEHOLDER + '\'"></div>' +
     '<div class="bd"><div class="nm">' + esc(p.nom) + '</div><div class="mk">' + esc(p.marque || '—') + (p.pays ? ' · ' + esc(p.pays) : '') + '</div>' +
+    '<div class="bcbar">' + bitsToSvg(c128bits(p.ref), p.ref, 26) + '</div>' +
     '<span class="rf">' + esc(p.ref) + '</span><div class="cd2">' + esc(p.cond || '—') + '</div></div></article>';
 }
 function renderMore() {
@@ -417,7 +420,7 @@ var C128 = ('212222 222122 222221 121223 121322 131222 122213 122312 132212 2212
   '314111 221411 431111 111224 111422 121124 121421 141122 141221 112214 112412 122114 122411 142112 142211 241211 221114 413111 241112 134111 ' +
   '111242 121142 121241 114212 124112 124211 411212 421112 421211 212141 214121 412121 111143 111341 131141 114113 114311 411113 411311 113141 ' +
   '114131 311141 411131 211412 211214 211232 233111').split(' ');
-function c128(text) {
+function c128bits(text) {
   var vals = [], i, sum;
   if (/^\d+$/.test(text) && text.length % 2 === 0) { vals.push(105); for (i = 0; i < text.length; i += 2) vals.push(+text.substr(i, 2)); }
   else { vals.push(104); for (i = 0; i < text.length; i++) vals.push(text.charCodeAt(i) - 32); }
@@ -426,8 +429,19 @@ function c128(text) {
   function emit(word, len) { bar = true; for (k = 0; k < len; k++) { for (n = 0; n < +word[k]; n++) bits += bar ? '1' : '0'; bar = !bar; } }
   for (i = 0; i < vals.length; i++) emit(C128[vals[i]], 6);
   emit(C128[106], 7);
-  var svg = '<svg viewBox="0 0 ' + bits.length + ' 40" preserveAspectRatio="none" aria-label="Code-barres ' + esc(text) + '">';
-  for (i = 0; i < bits.length; i++) if (bits[i] === '1') svg += '<rect x="' + i + '" width="1" y="0" height="40"/>';
+  return bits;
+}
+function c128(text) { return bitsToSvg(c128bits(text), text, 40); }
+/* transforme les modules en barres fusionnées (1 rect par plage noire) */
+function bitsToSvg(bits, text, h) {
+  var svg = '<svg viewBox="0 0 ' + bits.length + ' ' + h + '" preserveAspectRatio="none" aria-label="Code-barres ' + esc(text) + '">';
+  var i = 0;
+  while (i < bits.length) {
+    if (bits[i] === '1') {
+      var st = i; while (i < bits.length && bits[i] === '1') i++;
+      svg += '<rect x="' + st + '" width="' + (i - st) + '" y="0" height="' + h + '"/>';
+    } else i++;
+  }
   return svg + '</svg>';
 }
 
