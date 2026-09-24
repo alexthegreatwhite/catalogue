@@ -50,9 +50,12 @@ PHP, aucune base externe. Tout tourne dans le navigateur.
   automatique toutes les 15 s** tant qu'un envoi est en attente, plus une
   relance au retour en ligne / au focus. Un « sync en attente » se résout donc
   tout seul dès que le conflit disparaît.
-- **Position de scroll préservée** : après un ajout, une modification, une
-  suppression, une synchro ou un import, la page reste exactement où vous
-  étiez (seule une recherche remonte en haut, volontairement). Sur **mobile**,
+- **Position de scroll préservée PARTOUT, y compris tout en bas de liste** :
+  après un ajout/modification/suppression, la grille est mise à jour **en
+  place** (`mutateGrid()` : cartes réutilisées/réordonnées, seules les
+  différences sont créées ou retirées, contenu rafraîchi par signature) — aucun
+  vidage de grille, donc aucun saut, quel que soit le niveau de défilement.
+  Seule une recherche remonte en haut, volontairement. Sur **mobile**,
   où l'ouverture d'un panneau peut remettre le scroll à 0, la position est
   **mémorisée à l'ouverture du panneau** puis restaurée (double scrollTo +
   requestAnimationFrame).
