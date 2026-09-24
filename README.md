@@ -25,7 +25,10 @@ PHP, aucune base externe. Tout tourne dans le navigateur.
   (« MAJ : 23/09/2026 19:11 », **heure de Paris Europe/Paris** sur tous les
   appareils). **La valeur affichée est la date/heure du dernier commit GitHub
   de `data/userdb.json`** (horodatage serveur GitHub, exact), relue après
-  chaque envoi réussi et à chaque adoption de modifications. Sur **écran
+  chaque envoi réussi, à chaque adoption **et à chaque fusion**. **Une simple
+  consultation ne modifie jamais l'horodatage** : la fusion n'est déclenchée
+  que si le contenu local diffère réellement du distant (intentions locales),
+  et aucun push n'est envoyé dans ce cas. Sur **écran
   étroit** (≤560 px) la barre passe sur deux lignes :
   compteur + badge sync + menu en haut, **MAJ centrée sur sa propre ligne** ;
   les libellés deviennent compacts (`3111/3111`, `GitHub`, `Lecture`,
