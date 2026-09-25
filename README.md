@@ -61,8 +61,14 @@ PHP, aucune base externe. Tout tourne dans le navigateur.
   requestAnimationFrame).
 - **Ajout / modification / suppression** de **tous** les produits.
 - **Mot de passe `PsP`** demandé **une seule fois par session** pour ajouter / modifier / supprimer.
-- **Code-barres Code 128** du code (8 chiffres, préfixe 88) : sur **chaque carte
-  du catalogue** et, en compact, sur chaque fiche.
+- **Code-barres EAN-13** (symbologie universelle des caisses) sur **chaque
+  carte** et en grand sur la fiche : GTIN-13 construit depuis le code 8
+  chiffres (code complété à 12 chiffres + chiffre de contrôle GS1). Ex. code
+  `88062573` → EAN-13 `0000880625737`, affiché `0 000880 625737`. Le
+  **Code 128 du code interne** reste affiché en secondaire sur la fiche. Les barres encodent
+  **exactement** le code (vérifié par décodage dans les tests) ; rendu
+  optimisé pour le scan : barres nettes (`crispEdges`), zones calmes blanches,
+  module large (30 px en liste, 56 px en fiche).
 - **Ultra-léger** : ~14 Ko de JS, ~6 Ko de CSS, zéro dépendance, zéro framework ;
   un seul fichier HTML auto-suffisant (~305 Ko, gzip ~90 Ko) qui marche aussi
   en `file://` et dans les aperçus (CSS/JS inline, aucune ressource externe).
