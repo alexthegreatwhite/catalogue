@@ -705,7 +705,7 @@ function sigOf(p) { return [p.nom, p.marque, p.pays, p.cond, p.img].join('|'); }
 function cardInner(p) {
   return '<div class="im"><img src="' + esc(p.img) + '" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.src=\'' + PLACEHOLDER + '\'"></div>' +
     '<div class="bd"><div class="nm">' + esc(p.nom) + '</div><div class="mk">' + esc(p.marque || '—') + (p.pays ? ' · ' + esc(p.pays) : '') + '</div>' +
-    '<div class="bcbar">' + ean13Svg(ean13Of(p.ref)) + '</div>' +
+    '<div class="bcbar">' + c128(caisseOf(p.ref)) + '</div>' +
     '<span class="rf">' + esc(p.ref) + '</span><div class="cd2">' + esc(p.cond || '—') + '</div></div>';
 }
 function card(p) {
@@ -762,10 +762,11 @@ var C128 = ('212222 222122 222221 121223 121322 131222 122213 122312 132212 2212
   '231113 231311 112133 112331 132131 113123 113321 133121 313121 211331 231131 213113 213311 213131 311123 311321 331121 312113 312311 332111 ' +
   '314111 221411 431111 111224 111422 121124 121421 141122 141221 112214 112412 122114 122411 142112 142211 241211 221114 413111 241112 134111 ' +
   '111242 121142 121241 114212 124112 124211 411212 421112 421211 212141 214121 412121 111143 111341 131141 114113 114311 411113 411311 113141 ' +
-  '114131 311141 411131 211412 211214 211232 233111').split(' ');
+  '114131 311141 411131 211412 211214 211232 2331112').split(' ');
 function c128bits(text) {
   var vals = [], i, sum;
   if (/^\d+$/.test(text) && text.length % 2 === 0) { vals.push(105); for (i = 0; i < text.length; i += 2) vals.push(+text.substr(i, 2)); }
+  else if (/^\d+$/.test(text) && text.length > 1) { /* longueur impaire : 1er chiffre en B puis bascule en C (plus compact, scan fiable) */ vals.push(104); vals.push(text.charCodeAt(0) - 32); vals.push(99); for (i = 1; i < text.length; i += 2) vals.push(+text.substr(i, 2)); }
   else { vals.push(104); for (i = 0; i < text.length; i++) vals.push(text.charCodeAt(i) - 32); }
   sum = vals[0]; for (i = 1; i < vals.length; i++) sum += vals[i] * i; vals.push(sum % 103);
   var bits = '', w, k, n, bar;
@@ -790,44 +791,15 @@ function bitsToSvg(bits, text, h) {
   return svg + '</svg>';
 }
 
-/* ---------------- EAN-13 (symbologie universelle des caisses) ---------------- */
-var EAN_L = ['0001101','0011001','0010011','0111101','0100011','0110001','0101111','0111011','0110111','0001011'];
-var EAN_G = ['0100111','0110011','0011011','0100001','0011101','0111001','0000101','0100101','0010001','0010111'];
-var EAN_R = ['1110010','1100110','1101100','1000010','1011100','1001110','1010000','1000100','1001000','1110100'];
-var EAN_P = ['LLLLLL','LLGLGG','LLGGLG','LLGGGL','LGLLGG','LGGLLG','LGGGLL','LGLGLG','LGLGGL','LGGLGL'];
-/* GTIN-13 à partir du code 8 chiffres : code complété à 12 chiffres par la
-   gauche + chiffre de contrôle (norme GS1) */
-function ean13Of(code) {
-  var d = String(code || '').replace(/\D/g, '');
-  while (d.length < 12) d = '0' + d;
-  d = d.slice(0, 12);
-  var s = 0;
-  for (var i = 0; i < 12; i++) s += (d.charCodeAt(i) - 48) * (i % 2 ? 3 : 1);
-  return d + String((10 - s % 10) % 10);
-}
-function ean13Bits(ean) {
-  var d = String(ean);
-  if (d.length !== 13) return '';
-  var bits = '101', par = EAN_P[d.charCodeAt(0) - 48], i, n;
-  for (i = 1; i <= 6; i++) { n = d.charCodeAt(i) - 48; bits += (par.charAt(i - 1) === 'L') ? EAN_L[n] : EAN_G[n]; }
-  bits += '01010';
-  for (i = 7; i <= 12; i++) { n = d.charCodeAt(i) - 48; bits += EAN_R[n]; }
-  return bits + '101';
-}
-function ean13Svg(ean) {
-  var bits = ean13Bits(ean);
-  if (!bits) return '';
-  var svg = '<svg viewBox="0 0 95 60" preserveAspectRatio="none" shape-rendering="crispEdges" aria-label="Code-barres EAN-13 ' + esc(ean) + '" data-code="' + esc(ean) + '">';
-  for (var i = 0; i < bits.length; i++) {
-    if (bits.charAt(i) !== '1') continue;
-    var guard = (i < 3) || (i >= 45 && i < 50) || (i >= 92);
-    svg += '<rect x="' + i + '" y="0" width="1" height="' + (guard ? 60 : 52) + '"/>';
-  }
-  return svg + '</svg>';
-}
-function eanPretty(ean) {
-  var d = String(ean);
-  return d.charAt(0) + ' ' + d.slice(1, 7) + ' ' + d.slice(7);
+/* ---------------- code caisse (Code 128) ---------------- */
+/* Valeur scannée par la caisse : « 00000 » + code du produit.
+   Ex. code 88062573 → 0000088062573.
+   Encodée en Code 128 (symbologie universelle des caisses) : seul le
+   Code 128 peut porter exactement ces 13 caractères — un EAN-13
+   imposerait un chiffre de contrôle GS1 à la place du dernier chiffre
+   du code et la caisse rejetterait ou fausserait la valeur. */
+function caisseOf(code) {
+  return '00000' + String(code || '').replace(/\D/g, '');
 }
 
 /* ---------------- fiche product (structurée) ---------------- */
@@ -841,8 +813,7 @@ function openDetail(p) {
         '<div class="dcell"><span>Marque</span><b>' + esc(p.marque || 'Non renseignée') + '</b></div>' +
         '<div class="dcell"><span>Pays d’origine</span><b>' + esc(p.pays || 'Non renseigné') + '</b></div>' +
         '<div class="dcell wide"><span>Conditionnement</span><b>' + esc(p.cond || 'Non précisé') + '</b></div>' +
-        '<div class="dcell wide bc"><span>Code-barres EAN-13 (caisse)</span><b>' + ean13Svg(ean13Of(p.ref)) + '<i>' + esc(eanPretty(ean13Of(p.ref))) + '</i></b></div>' +
-        '<div class="dcell wide bc bc2"><span>Code 128 (code interne 8 chiffres)</span><b>' + c128(p.ref) + '<i>' + esc(p.ref) + '</i></b></div>' +
+        '<div class="dcell wide bc"><span>Code-barres caisse (Code 128)</span><b>' + c128(caisseOf(p.ref)) + '</b></div>' +
       '</div>' +
     '</div>' +
     '<div class="dacts">' +
