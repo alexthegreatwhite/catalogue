@@ -1,15 +1,31 @@
 # Catalogue Pro — application statique (GitHub Pages)
 
 Application de catalogue produits **100 % statique** : aucun serveur, aucun
-PHP, aucune base externe. Tout tourne dans le navigateur.
+PHP, aucune base externe. Tout tourne dans le navigateur. Installable en
+application (PWA : `manifest.webmanifest` + service worker).
 
-- **3 111 produits** et **3 068 photos** embarqués (mêmes produits que l'ancien site).
+- **3 111 produits** et **3 068 photos** embarqués dans le catalogue de base ;
+  le nombre affiché tient compte en temps réel de la base partagée
+  (suppressions et ajouts synchronisés via GitHub).
 - **Classement TOUJOURS alphabétique** : un produit créé ou modifié se range
   automatiquement à sa place (insensible aux accents) ; l'écran est amené sur
   lui (ou sa position est indiquée).
-- **Barre de recherche en haut** (nom, marque, pays, code, conditionnement), insensible aux accents.
-- **Responsive** : 2 colonnes sur mobile, **3 colonnes sur PC** (largeur
-  contenue) ; fiche produit en modale centrée sur PC, panneau bas sur mobile.
+- **Barre de recherche en haut** (nom, marque, pays, code, conditionnement,
+  **description**), insensible aux accents, multi-mots (tous les termes doivent
+  correspondre).
+- **Responsive** : grille à 2 colonnes sur mobile (colonnes auto ≥ 160 px),
+  **3 colonnes sur PC** (≥ 760 px, largeur contenue) ; fiche produit en modale
+  centrée sur PC (≥ 820 px), panneau bas sur mobile.
+- **Description du produit** (facultative, 600 caractères max) : visible **sous
+  le nom sur chaque carte** (tronquée à 2 lignes, masquée si vide) et **en
+  entier sur la fiche** (sauts de ligne conservés, « Non renseignée » si vide).
+  Ses mots sont **cherchables** dans la barre de recherche.
+- **Code-barres caisse (Code 128)** sur **chaque carte** et en grand sur la
+  fiche — voir la section dédiée ci-dessous.
+- **Code produit de 4 à 13 chiffres, tel que saisi** : les chiffres sont
+  extraits de la saisie, **aucun préfixe « 88 » n'est ajouté** pour les nouveaux
+  produits (les codes existants du catalogue restent inchangés). Un indice sous
+  le champ confirme le code enregistré et son nombre de chiffres.
 - **Appareil photo** pour ajouter un produit (caméra intégrée en HTTPS, sinon
   appareil photo natif). La photo est **convertie en WebP 360×360**, sujet
   centré fond blanc : strictement le même cadre que toutes les photos du
@@ -18,8 +34,9 @@ PHP, aucune base externe. Tout tourne dans le navigateur.
   blanche avec nouvelles tentatives automatiques.
 - **Restauration des suppressions** : menu **⋯ → ♻️ Restaurer les produits
   supprimés** réaffiche tous les produits supprimés (localement puis partout
-  après synchronisation). Le diagnostic (⋯ → ️) précise désormais le nombre
-  de modifications **non poussées**.
+  après synchronisation). Le diagnostic (⋯ → ℹ️ Source des données /
+  diagnostic) précise le dépôt résolu, la dernière URL lue, le résultat et le
+  nombre de modifications **non poussées**.
 - **Date/heure de la dernière MAJ affichées en permanence** dans la barre du
   haut, au centre entre le compteur de produits et le badge de sync
   (« MAJ : 23/09/2026 19:11 », **heure de Paris Europe/Paris** sur tous les
@@ -28,14 +45,13 @@ PHP, aucune base externe. Tout tourne dans le navigateur.
   chaque envoi réussi, à chaque adoption **et à chaque fusion**. **Une simple
   consultation ne modifie jamais l'horodatage** : la fusion n'est déclenchée
   que si le contenu local diffère réellement du distant (intentions locales),
-  et aucun push n'est envoyé dans ce cas. Sur **écran
-  étroit** (≤560 px) la barre passe sur deux lignes :
-  compteur + badge sync + menu en haut, **MAJ centrée sur sa propre ligne** ;
-  les libellés deviennent compacts (`3111/3111`, `GitHub`, `Lecture`,
-  `Attente`, `Locale`, `Source KO`) avec le libellé complet en info-bulle —
-  rien n'est tronqué. L'horodatage est mis à jour à chaque
-  modification locale et repris du dépôt lors des synchronisations ; il est
-  conservé au rechargement.
+  et aucun push n'est envoyé dans ce cas. Sur **écran étroit** (≤ 560 px) la
+  barre passe sur deux lignes : compteur + badge sync + menu en haut, **MAJ
+  centrée sur sa propre ligne** ; les libellés deviennent compacts
+  (`3111/3111`, `GitHub`, `Lecture`, `Attente`, `Locale`, `Source KO`) avec le
+  libellé complet en info-bulle — rien n'est tronqué. L'horodatage est mis à
+  jour à chaque modification locale et repris du dépôt lors des
+  synchronisations ; il est conservé au rechargement.
 - **Mise à jour automatique au lancement** : à chaque ouverture, l'application
   relit `index.html` **sans cache HTTP** (via le service worker) et le fichier
   `data/userdb.json` (cache cassé par horodatage). Si une nouvelle version du
@@ -53,26 +69,74 @@ PHP, aucune base externe. Tout tourne dans le navigateur.
 - **Position de scroll préservée PARTOUT, y compris tout en bas de liste** :
   après un ajout/modification/suppression, la grille est mise à jour **en
   place** (`mutateGrid()` : cartes réutilisées/réordonnées, seules les
-  différences sont créées ou retirées, contenu rafraîchi par signature) — aucun
-  vidage de grille, donc aucun saut, quel que soit le niveau de défilement.
-  Seule une recherche remonte en haut, volontairement. Sur **mobile**,
-  où l'ouverture d'un panneau peut remettre le scroll à 0, la position est
-  **mémorisée à l'ouverture du panneau** puis restaurée (double scrollTo +
+  différences sont créées ou retirées, contenu rafraîchi par signature —
+  nom, marque, pays, conditionnement, photo **et description**) — aucun vidage
+  de grille, donc aucun saut, quel que soit le niveau de défilement. Seule une
+  recherche remonte en haut, volontairement. Sur **mobile**, où l'ouverture
+  d'un panneau peut remettre le scroll à 0, la position est **mémorisée à
+  l'ouverture du panneau** puis restaurée (double scrollTo +
   requestAnimationFrame).
 - **Ajout / modification / suppression** de **tous** les produits.
-- **Mot de passe `PsP`** demandé **une seule fois par session** pour ajouter / modifier / supprimer.
-- **Code-barres EAN-13** (symbologie universelle des caisses) sur **chaque
-  carte** et en grand sur la fiche : GTIN-13 construit depuis le code 8
-  chiffres (code complété à 12 chiffres + chiffre de contrôle GS1). Ex. code
-  `88062573` → EAN-13 `0000880625737`, affiché `0 000880 625737`. Le
-  **Code 128 du code interne** reste affiché en secondaire sur la fiche. Les barres encodent
-  **exactement** le code (vérifié par décodage dans les tests) ; rendu
-  optimisé pour le scan : barres nettes (`crispEdges`), zones calmes blanches,
-  module large (30 px en liste, 56 px en fiche).
-- **Ultra-léger** : ~14 Ko de JS, ~6 Ko de CSS, zéro dépendance, zéro framework ;
-  un seul fichier HTML auto-suffisant (~305 Ko, gzip ~90 Ko) qui marche aussi
-  en `file://` et dans les aperçus (CSS/JS inline, aucune ressource externe).
-- **Rapide** : données mises en cache, images lazy-load + service worker, rendu par lots de 60.
+- **Mot de passe `PsP`** demandé **une seule fois par session** pour ajouter /
+  modifier / supprimer.
+- **Ultra-léger** : zéro dépendance, zéro framework ; un seul fichier HTML
+  auto-suffisant (~333 Ko, gzip ~70 Ko) qui marche aussi en `file://` et dans
+  les aperçus (CSS/JS inline, aucune ressource externe).
+- **Rapide** : données mises en cache, images lazy-load + service worker,
+  rendu par lots de 60.
+
+## Code-barres caisse (Code 128)
+
+Chaque produit porte **un seul code-barres**, affiché sur sa carte et en grand
+sur sa fiche : celui que la caisse doit scanner.
+
+**Valeur scannée** : le code produit complété par des « 0 » à gauche pour
+faire **13 chiffres au total** — **uniquement dans le code-barres** ; le code
+affiché à l'écran (badge de la carte, fiche, formulaire) reste **exactement le
+code saisi**.
+
+| Code produit | Valeur scannée par la caisse |
+|---|---|
+| `88062573` (8 chiffres) | `0000088062573` |
+| `123456789012` (12 chiffres) | `0123456789012` |
+| `3017620422003` (13 chiffres) | `3017620422003` (**tel quel, aucun « 0 » ajouté**) |
+
+**Symbologie : Code 128** (universellement prise en charge par les caisses),
+et non EAN-13 : un EAN-13 imposerait un chiffre de contrôle GS1 en 13ᵉ
+position et ne peut donc pas porter la valeur ci-dessus — la caisse la
+rejetterait ou afficherait un autre numéro. Le Code 128 encode **exactement**
+les 13 caractères attendus.
+
+Détails d'implémentation :
+- encodage conforme à la spécification Code 128 : caractère de **checksum**
+  (modulo 103) et motif de **STOP** complet (`2331112`) — les barres ont été
+  **vérifiées par décodage** (tous les produits du catalogue décodent la
+  valeur attendue) ;
+- encodage compact : paires de chiffres (Code C) pour les longueurs paires,
+  premier chiffre en Code B puis bascule en Code C pour les longueurs
+  impaires (13 chiffres → 123 modules) ;
+- rendu optimisé pour le scan : barres nettes (`shape-rendering:
+  crispEdges`), zones calmes blanches (fond et marges CSS), hauteur 34 px en
+  liste et 56 px en fiche ;
+- chaque SVG porte `data-code` et `aria-label` avec la valeur scannée.
+
+## Description du produit
+
+- Champ **Description** du formulaire (ajout/modification, après
+  Conditionnement) : facultatif, **600 caractères max**, plusieurs lignes
+  possibles.
+- **Carte** (écran principal) : la description s'affiche **sous le nom du
+  produit**, en gris, **tronquée à 2 lignes** avec « … » ; rien ne s'affiche si
+  elle est vide (la grille des produits sans description reste inchangée).
+- **Fiche produit** : section « Description » (entre Conditionnement et le
+  code-barres), texte complet, sauts de ligne conservés, « Non renseignée » si
+  vide. Le texte est échappé (aucune injection HTML possible).
+- **Recherche** : les mots de la description sont inclus dans l'index de
+  recherche (insensible aux accents, comme le reste).
+- **Stockage / sync** : clé `d` des enregistrements de `data/userdb.json` ;
+  suit exactement le même circuit que les autres champs (commit GitHub,
+  fusion, export/import). Les produits existants sans `d` affichent
+  « Non renseignée ».
 
 ## Où sont les données ?
 
@@ -80,8 +144,18 @@ PHP, aucune base externe. Tout tourne dans le navigateur.
 |---|---|
 | Catalogue de base | **inline dans `index.html`** (`window.CATALOG`, clés courtes `r,n,m,p,c`) — une seule requête, marche aussi en `file://` |
 | Photos catalogue | `img/<code>.webp` (carrés 360×360, centrés, fond blanc) |
-| **Base partagée** (ajouts/modifs/suppressions + photos) | **`data/userdb.json` dans le dépôt GitHub**, mis à jour **en temps réel** par l'app via l'API GitHub (commit) |
-| Repli local | localStorage `catpro.ch.v1` si pas de jeton / hors-ligne, poussé au retour |
+| **Base partagée** (ajouts/modifs/suppressions + photos + descriptions) | **`data/userdb.json` dans le dépôt GitHub**, mis à jour **en temps réel** par l'app via l'API GitHub (commit) |
+| Repli local | localStorage (`catpro.ch.v1`, `catpro.gh.v1`, `catpro.rev.v1`, `catpro.ok`) si pas de jeton / hors-ligne, poussé au retour |
+
+Format de `data/userdb.json` :
+```json
+{
+  "up":  { "<code>": { "r": "<code>", "n": "nom", "m": "marque", "p": "pays", "c": "conditionnement", "d": "description" } },
+  "del": { "<code>": 1 },
+  "ph":  { "<code>": "data:image/webp;base64,…" },
+  "_maj": "<horodatage ISO du dernier commit>"
+}
+```
 
 ### Sync GitHub temps réel
 1. **Aucun réglage n'est nécessaire pour consulter** : quand le site est servi
@@ -105,19 +179,33 @@ PHP, aucune base externe. Tout tourne dans le navigateur.
    lu sur la branche d'écriture et un conflit « does not match » déclenche un
    retry automatique.
    Badges : `sync : GitHub` / `sync : lecture GitHub` / `sync : en attente` /
-   `sync : source introuvable` / `sync : locale`. Menu **⋯ → ️ Source des
+   `sync : source introuvable` / `sync : locale`. Menu **⋯ → ℹ️ Source des
    données / diagnostic** : dépôt résolu, dernière URL lue, résultat, nombre de
    mods locales.
 
 Sans configuration GitHub, tout reste fonctionnel en local (localStorage) ;
-menu **⋯ → Exporter / Importer** permet alors un transfert manuel par fichier
-JSON.
+menu **⋯ → ⬇️ Exporter mes modifications / ⬆️ Importer des modifications**
+permet alors un transfert manuel par fichier JSON (les descriptions voyagent
+avec).
 
-## Mots de passe
+Le menu **⋯** contient : 🔄 Synchroniser avec GitHub · ⚙️ Base GitHub
+(owner/repo/jeton) · ♻️ Restaurer les produits supprimés · ℹ️ Source des
+données / diagnostic · ⬇️ Exporter mes modifications · ⬆️ Importer des
+modifications.
+
+## Fiche produit
+
+Panneau (modale centrée sur PC, panneau bas sur mobile) avec : photo grand
+format, nom, code produit en badge, marque, pays d'origine, conditionnement,
+**description**, **code-barres caisse** (seul code-barres de la fiche, sans
+texte à côté) et les boutons **✏️ Modifier** / **🗑 Supprimer** (mot de passe
+requis).
+
+## Mot de passe
 
 `PsP`, vérifié côté client par empreinte FNV-1a salée (`PASS_HASH` dans
-`app.js`). Demoré une fois par session (`sessionStorage`). C'est un verrou de
-confort, pas une sécurité serveur (impossible en statique).
+`index.html`). Demandé une fois par session (`sessionStorage`). C'est un verrou
+de confort, pas une sécurité serveur (impossible en statique).
 
 ## Mettre en ligne sur GitHub Pages
 
@@ -131,7 +219,7 @@ confort, pas une sécurité serveur (impossible en statique).
    git remote add origin https://github.com/VOTRE_COMPTE/catalogue.git
    git push -u origin main
    ```
-   (Le dossier fait ~30 Mo à cause des photos : si `git push` est lent,
+   (Le dossier fait ~24 Mo à cause des photos : si `git push` est lent,
    utilisez GitHub Desktop ou découpez en plusieurs commits.)
 3. Dans le dépôt : **Settings → Pages → Branch : `main` / folder : `/ (root)`** → Save.
 4. Attendez ~1 min, ouvrez `https://VOTRE_COMPTE.github.io/catalogue/`.
@@ -142,30 +230,20 @@ confort, pas une sécurité serveur (impossible en statique).
 ## Structure
 
 ```
-index.html            FICHIER AUTO-SUFFISANT généré : CSS + JS + catalogue
+index.html            FICHIER AUTO-SUFFISANT : CSS + JS + catalogue de base
                       (3 111 produits) inline → une seule requête
-sw.js                 service worker (cache coquille + images)
-manifest.webmanifest  installation en application
-img/                  3 068 photos WebP carrées 360x360
+sw.js                 service worker (coquille + données en cache, images
+                      cache-first bornées, index.html/userdb toujours frais)
+manifest.webmanifest  installation en application (standalone, icônes any + maskable)
+img/                  3 068 photos WebP carrées 360×360 (img/<code>.webp)
+icons/                icônes PWA (192, 512, maskable 512, apple-touch)
 data/userdb.json      base partagée (commitée par l'app via l'API GitHub)
+README.md             ce fichier
 ```
 
-Les **sources lisibles/modifiables** sont dans `tools/src/`
-(`index.html` gabarit à marqueurs, `app.js`, `style.css`).
-**Ne jamais éditer `app/index.html` à la main** : modifier `tools/src/` puis
-`python3 tools/build_github.py`.
-
-## Régénérer données / photos
-
-Depuis la racine du projet (hors GitHub) :
-```bash
-python3 tools/build_github.py     # régénère app/index.html (+ data/userdb.json si absent)
-python3 tools/normalize_images.py   # (une fois) carrés 360x360 WebP
-```
-
-## Tester
-
-```bash
-cd tools/jstest && npm install && cd -
-node tools/jstest/app.test.js
-```
+Le dépôt est **auto-portant** : `index.html` est le fichier unique à modifier
+pour faire évoluer l'application (CSS, JS et catalogue y sont inline) — pas de
+build, pas de dépendance, pas d'outil externe. Les produits ajoutés/modifiés
+vivent dans `data/userdb.json`, écrit par l'application elle-même : ne pas le
+modifier à la main pendant que le site est utilisé (risque d'écraser les
+modifications en cours de sync).

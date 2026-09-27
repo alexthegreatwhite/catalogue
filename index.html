@@ -60,6 +60,7 @@ main{padding:12px 12px 96px;max-width:1080px;margin:0 auto}
 .cd .bcbar{margin-top:2px;background:#fff;padding:4px 8px 3px;border-radius:6px}
 .cd .bcbar svg{display:block;width:100%;height:34px;fill:#0c1526}
 .cd .nm{font-weight:700;font-size:14.5px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cd .ds{color:var(--t2);font-size:12px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .cd .mk{color:var(--t2);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cd .rf{font-family:ui-monospace,"Courier New",monospace;font-weight:800;font-size:15px;color:var(--rd);background:#fff0f2;border:1.5px solid #f6c9d0;border-radius:8px;padding:2px 8px;align-self:flex-start;letter-spacing:.03em}
 .cd .cd2{color:var(--t2);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -85,6 +86,8 @@ main{padding:12px 12px 96px;max-width:1080px;margin:0 auto}
 label{display:block;font-size:12.5px;font-weight:700;color:var(--t2);margin:11px 0 0}
 label input{display:block;width:100%;margin-top:5px;padding:11px 12px;font-size:16px;font-weight:500;border:1.5px solid var(--ln);border-radius:10px;background:var(--bg);outline:0}
 label input:focus{border-color:var(--br);background:#fff}
+label textarea{display:block;width:100%;margin-top:5px;padding:11px 12px;font-size:16px;font-weight:500;border:1.5px solid var(--ln);border-radius:10px;background:var(--bg);outline:0;font-family:inherit;line-height:1.45;resize:vertical;min-height:84px}
+label textarea:focus{border-color:var(--br);background:#fff}
 .mono{font-family:ui-monospace,monospace;letter-spacing:.06em;font-weight:800}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .req{color:var(--rd)}
@@ -115,6 +118,7 @@ label input:focus{border-color:var(--br);background:#fff}
 .dcell.wide{grid-column:1/-1}
 .dcell span{display:block;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--t2);margin-bottom:3px}
 .dcell b{display:block;font-size:14px;font-weight:600;overflow-wrap:anywhere}
+.dcell b.dbio{white-space:pre-wrap;font-weight:500;line-height:1.5}
 /* code-barres COMPACT */
 .dcell.bc b{display:flex;align-items:center;gap:10px}
 .dcell.bc svg{width:240px;max-width:60%;height:56px;flex:none;fill:var(--tx)}
@@ -146,7 +150,7 @@ label input:focus{border-color:var(--br);background:#fff}
 <header>
   <div class="srch">
     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="m20 20-3.2-3.2" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
-    <input id="q" type="search" placeholder="Rechercher : nom, marque, pays, code…" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" aria-label="Rechercher">
+    <input id="q" type="search" placeholder="Rechercher : nom, marque, pays, code, description…" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" aria-label="Rechercher">
     <button id="qc" type="button" hidden aria-label="Effacer la recherche"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
   </div>
   <div class="bar">
@@ -200,9 +204,10 @@ label input:focus{border-color:var(--br);background:#fff}
       <label>Marque<input id="i-marque" list="dl-m" maxlength="80" autocomplete="off"></label>
       <label>Pays<input id="i-pays" list="dl-p" maxlength="80" autocomplete="off"></label>
     </div>
-    <label>Code produit <span class="req">*</span><input id="i-ref" class="mono" inputmode="numeric" maxlength="12" autocomplete="off" spellcheck="false"></label>
+    <label>Code produit <span class="req">*</span><input id="i-ref" class="mono" inputmode="numeric" maxlength="13" autocomplete="off" spellcheck="false"></label>
     <p id="refhint" class="hint"></p>
     <label>Conditionnement<input id="i-cond" maxlength="80" autocomplete="off"></label>
+    <label>Description<textarea id="i-desc" rows="3" maxlength="600" placeholder="Facultatif — visible uniquement sur la fiche produit, pris en compte par la recherche"></textarea></label>
     <p id="ferr" class="err" hidden></p>
   </div>
   <div class="ffoot">
@@ -303,7 +308,10 @@ function debounce(fn, ms) {
   var t;
   return function () { clearTimeout(t); t = setTimeout(fn, ms); };
 }
-function code88(raw) { var d = String(raw || '').replace(/\D/g, ''); if (!d) return ''; return d.indexOf('88') === 0 ? d : '88' + d; }
+/* Code produit : chiffres uniquement, TEL QUE SAISI — le préfixe « 88 » n'est
+   plus ajouté automatiquement pour les nouveaux produits (les codes existants
+   du catalogue restent inchangés). */
+function code88(raw) { return String(raw || '').replace(/\D/g, ''); }
 function b64utf8(str) { return btoa(unescape(encodeURIComponent(str))); }
 
 /* ---------------- données ---------------- */
@@ -326,14 +334,14 @@ function cmpAlpha(a, b) {
 }
 function buildAll() {
   ALL = [];
-  function mk(x) { return { ref: x.r, nom: x.n, marque: x.m || '', pays: x.p || '', cond: x.c || '', img: imgOf(x.r), base: !!BASEMAP[x.r] }; }
+  function mk(x) { return { ref: x.r, nom: x.n, marque: x.m || '', pays: x.p || '', cond: x.c || '', desc: x.d || '', img: imgOf(x.r), base: !!BASEMAP[x.r] }; }
   var seen = {}, i;
   for (i = 0; i < BASE.length; i++) { var r = BASE[i]; if (CH.del[r.r] || CH.up[r.r]) continue; seen[r.r] = 1; ALL.push(mk(r)); }
   var up = Object.keys(CH.up);
   for (i = 0; i < up.length; i++) if (!CH.del[up[i]]) ALL.push(mk(CH.up[up[i]]));
   ALL.sort(cmpAlpha);
 }
-function hay(p) { if (!p._h) p._h = norm(p.nom + ' ' + p.marque + ' ' + p.pays + ' ' + p.ref + ' ' + p.cond); return p._h; }
+function hay(p) { if (!p._h) p._h = norm(p.nom + ' ' + p.marque + ' ' + p.pays + ' ' + p.ref + ' ' + p.cond + ' ' + (p.desc || '')); return p._h; }
 
 /* ---------------- GitHub : base partagée en temps réel ---------------- */
 /* Sur GitHub Pages (https://PROPRIO.github.io/DEPOT/), le dépôt est déduit de
@@ -701,10 +709,10 @@ function setCnt() {
     : (VIEW.length + ' / ' + ALL.length + ' produits');
   el.title = VIEW.length + ' / ' + ALL.length + ' produits';
 }
-function sigOf(p) { return [p.nom, p.marque, p.pays, p.cond, p.img].join('|'); }
+function sigOf(p) { return [p.nom, p.marque, p.pays, p.cond, p.img, p.desc || ''].join('|'); }
 function cardInner(p) {
   return '<div class="im"><img src="' + esc(p.img) + '" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.src=\'' + PLACEHOLDER + '\'"></div>' +
-    '<div class="bd"><div class="nm">' + esc(p.nom) + '</div><div class="mk">' + esc(p.marque || '—') + (p.pays ? ' · ' + esc(p.pays) : '') + '</div>' +
+    '<div class="bd"><div class="nm">' + esc(p.nom) + '</div>' + (p.desc ? '<div class="ds">' + esc(p.desc) + '</div>' : '') + '<div class="mk">' + esc(p.marque || '—') + (p.pays ? ' · ' + esc(p.pays) : '') + '</div>' +
     '<div class="bcbar">' + c128(caisseOf(p.ref)) + '</div>' +
     '<span class="rf">' + esc(p.ref) + '</span><div class="cd2">' + esc(p.cond || '—') + '</div></div>';
 }
@@ -792,14 +800,19 @@ function bitsToSvg(bits, text, h) {
 }
 
 /* ---------------- code caisse (Code 128) ---------------- */
-/* Valeur scannée par la caisse : « 00000 » + code du produit.
-   Ex. code 88062573 → 0000088062573.
+/* Valeur scannée par la caisse : le code produit complété par des « 0 » à
+   gauche pour faire 13 chiffres au total — UNIQUEMENT dans le code-barres
+   (le code affiché à l'écran reste tel que saisi). Un code déjà à
+   13 chiffres est encodé tel quel, sans aucun « 0 » ajouté.
+   Ex. code 88062573 → 0000088062573 ; code 3017620422003 → 3017620422003.
    Encodée en Code 128 (symbologie universelle des caisses) : seul le
    Code 128 peut porter exactement ces 13 caractères — un EAN-13
    imposerait un chiffre de contrôle GS1 à la place du dernier chiffre
    du code et la caisse rejetterait ou fausserait la valeur. */
 function caisseOf(code) {
-  return '00000' + String(code || '').replace(/\D/g, '');
+  var d = String(code || '').replace(/\D/g, '');
+  while (d.length < 13) d = '0' + d;
+  return d;
 }
 
 /* ---------------- fiche product (structurée) ---------------- */
@@ -813,6 +826,7 @@ function openDetail(p) {
         '<div class="dcell"><span>Marque</span><b>' + esc(p.marque || 'Non renseignée') + '</b></div>' +
         '<div class="dcell"><span>Pays d’origine</span><b>' + esc(p.pays || 'Non renseigné') + '</b></div>' +
         '<div class="dcell wide"><span>Conditionnement</span><b>' + esc(p.cond || 'Non précisé') + '</b></div>' +
+        '<div class="dcell wide"><span>Description</span><b class="dbio">' + esc(p.desc || 'Non renseignée') + '</b></div>' +
         '<div class="dcell wide bc"><span>Code-barres caisse (Code 128)</span><b>' + c128(caisseOf(p.ref)) + '</b></div>' +
       '</div>' +
     '</div>' +
@@ -842,6 +856,7 @@ function openForm(p) {
   $('#i-pays').value = p ? p.pays : '';
   $('#i-ref').value = p ? p.ref : '';
   $('#i-cond').value = p ? p.cond : '';
+  $('#i-desc').value = p ? (p.desc || '') : '';
   $('#ferr').hidden = true; $('#refhint').textContent = '';
   showPhoto();
   open('#form');
@@ -880,7 +895,7 @@ function saveForm() {
   var err = '';
   if (nom.length < 2) err = 'Le nom est obligatoire (2 caractères min).';
   else if (!ref) err = 'Le code produit est obligatoire.';
-  else if (!/^88\d{4,10}$/.test(ref)) err = 'Code invalide : doit commencer par 88 (6 à 12 chiffres).';
+  else if (!/^\d{4,13}$/.test(ref)) err = 'Code invalide : 4 à 13 chiffres.';
   else if (!editing && !photoData) err = 'Prenez une photo du produit.';
   if (err) { $('#ferr').textContent = err; $('#ferr').hidden = false; return; }
   $('#ferr').hidden = true;
@@ -892,7 +907,7 @@ function saveForm() {
     if (CH.ph[oldRef] && !photoData) CH.ph[ref] = CH.ph[oldRef];
     delete CH.ph[oldRef];
   }
-  CH.up[ref] = { r: ref, n: nom, m: $('#i-marque').value.trim(), p: $('#i-pays').value.trim(), c: $('#i-cond').value.trim() };
+  CH.up[ref] = { r: ref, n: nom, m: $('#i-marque').value.trim(), p: $('#i-pays').value.trim(), c: $('#i-cond').value.trim(), d: $('#i-desc').value.trim() };
   if (photoData) CH.ph[ref] = photoData;
   closeAll();
   highlight = ref;
