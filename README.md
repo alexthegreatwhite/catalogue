@@ -16,6 +16,13 @@ application (PWA : `manifest.webmanifest` + service worker).
 - **Responsive** : grille à 2 colonnes sur mobile (colonnes auto ≥ 160 px),
   **3 colonnes sur PC** (≥ 760 px, largeur contenue) ; fiche produit en modale
   centrée sur PC (≥ 820 px), panneau bas sur mobile.
+- **Bouton retour smartphone** (bouton Android, geste iOS) : quand une fiche,
+  un formulaire ou un panneau est ouvert, le retour **ferme d'abord l'overlay**
+  et revient à la grille ; il ne quitte le site que lorsque plus rien n'est
+  ouvert (History API ; la caméra se ferme seule avant le formulaire ;
+  désactivé silencieusement là où l'historique est indisponible, ex.
+  `file://`). Barre d'état de l'app installée **blanche**, fondue avec
+  l'en-tête (`theme_color`).
 - **Description du produit** (facultative, 600 caractères max) : visible **sous
   le nom sur chaque carte** (tronquée à 2 lignes, masquée si vide) et **en
   entier sur la fiche** (sauts de ligne conservés, « Non renseignée » si vide).

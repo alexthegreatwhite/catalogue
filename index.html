@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Catalogue Pro</title>
 <meta name="description" content="Catalogue produits : recherche, ajout par photo, modification, suppression.">
-<meta name="theme-color" content="#2456e6">
+<meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -738,14 +738,50 @@ function revealRef(ref) {
 }
 
 /* ---------------- panneaux ---------------- */
+/* ---------------- overlays + bouton retour smartphone ----------------
+   Pendant qu'un overlay (fiche, formulaire, mot de passe, réglages GitHub,
+   caméra) est ouvert, il « porte » un unique état d'historique : le retour
+   (bouton Android, geste iOS) ferme d'abord l'overlay et ne quitte le site
+   que lorsque plus rien n'est ouvert. Les transitions entre panneaux
+   (fiche → mot de passe → formulaire) réutilisent le même état
+   (replaceState) : jamais d'entrées mortes dans la pile. Si l'historique
+   est indisponible (file://, sandbox), la couche se désactive silencieusement
+   et le comportement redevient celui d'origine. */
+var histHeld = false, histStale = false;
+function overlayOpen() {
+  return !$('#sheet').hidden || !$('#form').hidden || !$('#pass').hidden || !$('#ghs').hidden || !$('#cam').hidden;
+}
+function histTake() {
+  if (histHeld) return;
+  try {
+    if (histStale) { histStale = false; histHeld = true; history.replaceState({ cp: 1 }, ''); return; }
+    history.pushState({ cp: 1 }, ''); histHeld = true;
+  } catch (e) { histHeld = false; histStale = false; }
+}
+function histRelease() {
+  if (histHeld) { histHeld = false; histStale = true; }
+  if (!histStale) return;
+  setTimeout(function () {
+    if (histHeld || overlayOpen()) return;
+    histStale = false;
+    try { history.back(); } catch (e) {}
+  }, 0);
+}
+window.addEventListener('popstate', function () {
+  histHeld = false; histStale = false;
+  if (!$('#cam').hidden) { stopCam(); if (overlayOpen()) histTake(); return; }  /* retour = fermer la caméra, rester sur le formulaire */
+  if (overlayOpen()) closeAll();
+});
 function open(id) {
   preSheetY = window.scrollY || window.pageYOffset || 0;   // avant overflow:hidden (mobile remet à 0)
   $(id).hidden = false; $('#scrim').hidden = false; document.body.style.overflow = 'hidden';
+  histTake();
 }
 function closeAll() {
   ['#sheet', '#form', '#pass', '#ghs'].forEach(function (s) { $(s).hidden = true; });
   $('#scrim').hidden = true; document.body.style.overflow = '';
   stopCam();
+  histRelease();
 }
 
 /* ---------------- mot de passe ---------------- */
