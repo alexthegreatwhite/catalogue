@@ -11,8 +11,14 @@ application (PWA : `manifest.webmanifest` + service worker).
   automatiquement à sa place (insensible aux accents) ; l'écran est amené sur
   lui (ou sa position est indiquée).
 - **Barre de recherche en haut** (nom, marque, pays, code, conditionnement,
-  **description**), insensible aux accents, multi-mots (tous les termes doivent
-  correspondre).
+  **description**), insensible aux accents, multi-mots : **tous** les mots
+  saisis doivent correspondre (ET strict, appliqué à chaque frappe) et chaque
+  mot saisi correspond au **début d'un mot** du produit — jamais à l'intérieur
+  d'un autre mot : « ail » n'attrape pas « Thaïlande », « long » n'attrape pas
+  « Oolong ». En cours de frappe, le dernier mot peut être partiel : « riz l »
+  ne garde que les produits ayant un mot commençant par « l » ; tout produit
+  qui ne contient pas tous les mots saisis est retiré de l'affichage
+  immédiatement.
 - **Responsive** : grille à 2 colonnes sur mobile (colonnes auto ≥ 160 px),
   **3 colonnes sur PC** (≥ 760 px, largeur contenue) ; fiche produit en modale
   centrée sur PC (≥ 820 px), panneau bas sur mobile.
