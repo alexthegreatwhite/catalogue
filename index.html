@@ -163,7 +163,6 @@ label textarea:focus{border-color:var(--br);background:#fff}
   <div id="mnu" class="mnu" hidden>
     <button id="m-sync" type="button">🔄 Synchroniser avec GitHub</button>
     <button id="m-gh" type="button">⚙️ Base GitHub (owner/repo/jeton)</button>
-    <button id="m-restore" type="button">♻️ Restaurer les produits supprimés</button>
     <button id="m-info" type="button">ℹ️ Source des données / diagnostic</button>
     <button id="m-exp" type="button">⬇️ Exporter mes modifications</button>
     <button id="m-imp" type="button">⬆️ Importer des modifications</button>
@@ -958,6 +957,10 @@ function saveForm() {
     delete CH.ph[oldRef];
   }
   CH.up[ref] = { r: ref, n: nom, m: $('#i-marque').value.trim(), p: $('#i-pays').value.trim(), c: $('#i-cond').value.trim(), d: $('#i-desc').value.trim() };
+  delete CH.del[ref];   /* (re)créer retire le tombstone de suppression : sans cela,
+                           un produit recréé avec un code déjà supprimé serait
+                           enregistré/envoyé mais masqué partout (buildAll saute
+                           tout « up » présent dans « del »). */
   if (photoData) CH.ph[ref] = photoData;
   closeAll();
   highlight = ref;
@@ -1102,14 +1105,6 @@ function init() {
   $('#m-imp').onclick = function () { $('#fimp').click(); };
   $('#m-sync').onclick = function () { if (!ghCanRead()) { openGH(); return; } reconcile(); };
   $('#m-info').onclick = function () { toast(syncInfo(), 'warn'); };
-  $('#m-restore').onclick = function () {
-    var n = Object.keys(CH.del).length;
-    if (!n) { toast('Aucune suppression à restaurer.', 'warn'); return; }
-    if (!confirm('Restaurer les ' + n + ' produit(s) supprimé(s) ? Ils réapparaîtront partout après synchronisation.')) return;
-    CH.del = {};
-    commitCH(true);
-    toast(n + ' produit(s) restauré(s).', 'ok');
-  };
   $('#m-gh').onclick = openGH;
   $('#fimp').onchange = function (e) { if (e.target.files[0]) importCH(e.target.files[0]); e.target.value = ''; };
 

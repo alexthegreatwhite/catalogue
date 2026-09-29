@@ -43,9 +43,10 @@ application (PWA : `manifest.webmanifest` + service worker).
   catalogue. **Capture fiabilisée** : attente d'une vraie trame vidéo
   (`readyState >= 2`), prise sur `requestAnimationFrame`, contrôle anti-photo
   blanche avec nouvelles tentatives automatiques.
-- **Restauration des suppressions** : menu **⋯ → ♻️ Restaurer les produits
-  supprimés** réaffiche tous les produits supprimés (localement puis partout
-  après synchronisation). Le diagnostic (⋯ → ℹ️ Source des données /
+- **Suppressions** : le bouton « ♻️ Restaurer les produits supprimés » a été
+  **retiré** du menu ⋯ (une suppression est définitive). Seul recours : recréer
+  un produit avec le même code — l'enregistrement retire automatiquement son
+  tombstone et le réaffiche immédiatement, ici et partout après synchronisation. Le diagnostic (⋯ → ℹ️ Source des données /
   diagnostic) précise le dépôt résolu, la dernière URL lue, le résultat et le
   nombre de modifications **non poussées**.
 - **Date/heure de la dernière MAJ affichées en permanence** dans la barre du
@@ -200,9 +201,8 @@ permet alors un transfert manuel par fichier JSON (les descriptions voyagent
 avec).
 
 Le menu **⋯** contient : 🔄 Synchroniser avec GitHub · ⚙️ Base GitHub
-(owner/repo/jeton) · ♻️ Restaurer les produits supprimés · ℹ️ Source des
-données / diagnostic · ⬇️ Exporter mes modifications · ⬆️ Importer des
-modifications.
+(owner/repo/jeton) · ℹ️ Source des données / diagnostic · ⬇️ Exporter mes
+modifications · ⬆️ Importer des modifications.
 
 ## Fiche produit
 
