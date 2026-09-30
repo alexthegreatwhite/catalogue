@@ -17,12 +17,14 @@ application (PWA : `manifest.webmanifest` + service worker).
   affiché. La correspondance se fait **n'importe où dans le texte, y compris
   à l'intérieur d'un mot ou d'un code** : « 062574 » trouve le produit
   « 88062574 », « pignon » trouve « champignon ».
-- **1re lettre en majuscule automatiquement** : à l'enregistrement (création
-  ou modification), les champs **Nom, Marque, Pays, Description** sont rognés
-  et leur première lettre passe en majuscule (`cap1()` ; les écritures sans
-  casse, ex. sinogrammes, restent inchangées). **Les produits existants ont
-  été migrés** le 30/09/2026 (catalogue inline dans `index.html` et base
-  partagée `data/userdb.json`).
+- **1re lettre en majuscule automatiquement** : **dès la frappe** dans les
+  champs Nom, Marque, Pays, Description (la première lettre tapée passe en
+  majuscule, position du curseur préservée), et en filet de sécurité à
+  l'enregistrement (`cap1()`, création ou modification ; les écritures sans
+  casse, ex. sinogrammes, restent inchangées). **Tous les produits existants
+  ont été migrés** : catalogue inline dans `index.html` et base partagée
+  `data/userdb.json` (migration re-appliquée le 30/09/2026 après un merge
+  régressif sur `data/userdb.json`).
 - **Responsive** : grille à 2 colonnes sur mobile (colonnes auto ≥ 160 px),
   **3 colonnes sur PC** (≥ 760 px, largeur contenue) ; fiche produit en modale
   centrée sur PC (≥ 820 px), panneau bas sur mobile.

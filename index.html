@@ -1141,6 +1141,20 @@ function init() {
   $('#b-delph').onclick = function () { photoData = null; if (editing) delete CH.ph[editing.ref]; showPhoto(); };
   $('#fi').onchange = function (e) { var f = e.target.files[0]; e.target.value = ''; if (f) compress(f, function (url) { photoData = url; showPhoto(); }); };
   $('#i-ref').addEventListener('input', function () { var d = this.value.replace(/\D/g, ''); $('#refhint').textContent = d ? 'Code enregistré : ' + code88(d) + ' (' + code88(d).length + ' chiffres)' : ''; });
+  /* 1re lettre en majuscule DÈS LA FRAPPE : nom, marque, pays, description.
+     La casse est corrigée au moment où la lettre est tapée (position du
+     curseur préservée) ; cap1() à l'enregistrement reste le filet de sécurité. */
+  ['#i-nom', '#i-marque', '#i-pays', '#i-desc'].forEach(function (s) {
+    var el = $(s);
+    el.addEventListener('input', function () {
+      var v = el.value;
+      if (v && v.charAt(0) !== v.charAt(0).toUpperCase()) {
+        var pos = el.selectionStart;
+        el.value = v.charAt(0).toUpperCase() + v.slice(1);
+        try { el.setSelectionRange(pos, pos); } catch (e) {}
+      }
+    });
+  });
 
   $('#c-x').onclick = stopCam;
   $('#c-shot').onclick = shoot;
