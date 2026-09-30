@@ -41,6 +41,13 @@ application (PWA : `manifest.webmanifest` + service worker).
   `data/userdb.json` ; le formulaire ajout/modif propose deux listes
   dépendantes ; les cartes et la fiche affichent un badge coloré. Défilement
   des rangées : swipe au doigt, maintien+glisser à la souris, ou flèches ‹ ›.
+- **Mode lot (classement en masse)** : menu **⋯ → 🗂️ Classer plusieurs
+  produits** : une barre fixe apparaît en bas ; touchez les cartes pour les
+  sélectionner (coche bleue), ou **« + Résultats »** pour prendre d'un coup
+  toute la liste affichée — la recherche et les chips servent donc de tri
+  préalable ; choisissez catégorie + sous-catégorie puis **« Appliquer »** :
+  tous les produits sélectionnés sont classés, enregistrés et synchronisés.
+  « ✕ » quitte le mode sans rien changer.
 - **Responsive** : grille à 2 colonnes sur mobile (colonnes auto ≥ 160 px),
   **3 colonnes sur PC** (≥ 760 px, largeur contenue) ; fiche produit en modale
   centrée sur PC (≥ 820 px), panneau bas sur mobile.
