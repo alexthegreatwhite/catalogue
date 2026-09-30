@@ -198,7 +198,7 @@ label textarea:focus{border-color:var(--br);background:#fff}
     <span id="maj" class="maj" title="Date et heure de la dernière mise à jour"></span>
     <span id="syncst" class="sy off">sync : locale</span>
     <button id="menu" type="button" aria-label="Menu">⋯</button>
-    <button id="catstoggle" type="button" aria-label="Afficher ou masquer les catégories">▴</button>
+    <button id="catstoggle" type="button" aria-label="Afficher les catégories" hidden>▾</button>
   </div>
   <div id="catsbox">
   <div class="cats-wrap" id="catsWrap">
@@ -1371,25 +1371,34 @@ $('#b-apply').onclick = applyBulk;
 $('#b-exit').onclick = exitBulk;
 
 /* ---------------- barre de catégories : masquée au scroll, rappelable ---------------- */
-var catsHidden = false, lastScrollY = window.scrollY || 0;
+var catsHidden = false, lastScrollY = window.scrollY || 0, suppressHideUntil = 0;
 function setCatsBar(hidden) {
   catsHidden = hidden;
+  if (!hidden) suppressHideUntil = Date.now() + 450;  /* anti-repli immédiat :
+    le déploiement de la barre décale la mise en page et peut générer un
+    événement scroll (ancrage mobile) qui la replierait aussitôt */
   var h = document.querySelector('header');
   if (h) h.classList.toggle('nocat', hidden);
   var b = $('#catstoggle');
   if (b) {
-    b.textContent = hidden ? '▾' : '▴';
-    b.title = hidden ? 'Remonter la barre des catégories' : 'Redescendre la barre des catégories';
+    /* le bouton n'existe que barre masquée : il disparaît dès que la
+       barre des catégories est affichée */
+    b.hidden = !hidden;
+    b.textContent = '▾';
+    b.title = 'Rafficher la barre des catégories';
   }
   updateNav('catsWrap', 'cats'); updateNav('subsWrap', 'subs');
 }
 window.addEventListener('scroll', function () {
   var y = window.scrollY || window.pageYOffset || 0;
   if (y < 24) { if (catsHidden) setCatsBar(false); }                 /* retour en haut : barre visible */
-  else if (Math.abs(y - lastScrollY) > 6 && !catsHidden) setCatsBar(true); /* scroll haut OU bas : barre masquée */
+  else if (Math.abs(y - lastScrollY) > 6 && !catsHidden && Date.now() > suppressHideUntil) setCatsBar(true); /* scroll haut OU bas : barre masquée */
   lastScrollY = y;
 }, { passive: true });
-$('#catstoggle').onclick = function () { setCatsBar(!catsHidden); };
+$('#catstoggle').onclick = function () {
+  lastScrollY = window.scrollY || window.pageYOffset || 0;  /* le tap ne doit pas compter comme un scroll */
+  setCatsBar(!catsHidden);
+};
 /* survol de la barre d'état (compteur · MAJ · sync) : la barre des catégories
    apparaît. Elle ne se replie JAMAIS au départ du curseur : uniquement via le
    bouton flèche ou un scroll. Appareils à pointeur seulement. */
