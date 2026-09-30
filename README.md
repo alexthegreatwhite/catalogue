@@ -30,6 +30,17 @@ application (PWA : `manifest.webmanifest` + service worker).
   repousse la casse correcte) : une minuscule ancienne ne peut plus resurgir,
   même si un push/merge régressif ou un cache local réintroduit des données
   brutes — les appareils se resynchronisent d'eux-mêmes au lancement.
+- **Catégories & sous-catégories** : bandeau de chips sous la barre de
+  recherche (qui ne bouge pas) : **Boissons, Épicerie, Surgelé, Bazar** ; la
+  rangée de sous-catégories (boissons sucrées/alcoolisées ; snacks, thés/cafés,
+  sauces, conserves, riz, épices, nouilles, huiles, produits secs, farines,
+  sucres ; fritures, fruits/légumes, viandes, poissons, plats préparés,
+  desserts) n'apparaît que lorsqu'une catégorie est choisie. Les filtres
+  catégorie + sous-catégorie + recherche se combinent. Chaque produit porte
+  une clé `g` (catégorie) et `sg` (sous-catégorie) dans le catalogue inline et
+  `data/userdb.json` ; le formulaire ajout/modif propose deux listes
+  dépendantes ; les cartes et la fiche affichent un badge coloré. Défilement
+  des rangées : swipe au doigt, maintien+glisser à la souris, ou flèches ‹ ›.
 - **Responsive** : grille à 2 colonnes sur mobile (colonnes auto ≥ 160 px),
   **3 colonnes sur PC** (≥ 760 px, largeur contenue) ; fiche produit en modale
   centrée sur PC (≥ 820 px), panneau bas sur mobile.
