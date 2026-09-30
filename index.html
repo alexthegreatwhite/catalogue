@@ -360,7 +360,7 @@ var CATS = [
     { id: 'conserves-salees', label: 'Conserves salées' },
     { id: 'riz', label: 'Riz' },
     { id: 'epices-assaisonnements', label: 'Épices / assaisonnements' },
-    { id: 'nouilles', label: 'Nouilles' },
+    { id: 'nouilles', label: 'Nouilles / vermicelles' },
     { id: 'nouilles-instantanees', label: 'Nouilles instantanées' },
     { id: 'huiles-vinaigres', label: 'Huiles / vinaigres' },
     { id: 'produits-secs', label: 'Produits secs' },
@@ -372,13 +372,14 @@ var CATS = [
     { id: 'viandes', label: 'Viandes' },
     { id: 'poissons-fruits-de-mer', label: 'Poissons / fruits de mer' },
     { id: 'plats-prepares', label: 'Plats préparés' },
-    { id: 'desserts', label: 'Desserts' } ] },
+    { id: 'desserts', label: 'Desserts' },
+    { id: 'accompagnement', label: 'Accompagnement' } ] },
   { id: 'bazar', label: 'Bazar', icon: '🧺', subs: [] }
 ];
 var CATLABEL = {}, SUBLABEL = {};
 CATS.forEach(function (c) { CATLABEL[c.id] = c.label; (c.subs || []).forEach(function (s) { SUBLABEL[s.id] = s.label; }); });
 var cat = 'tout', sub = 'all';
-var bulkMode = false, SEL = {};
+var bulkMode = false, BULKSEL = {};
 var CH = emptyCH(), dirty = false, ghBusy = false;
 var editing = null, photoData = null, photoKept = false;
 var afterUnlock = null, camStream = null, facing = 'environment';
@@ -847,7 +848,7 @@ function cardInner(p) {
     '<span class="rf">' + esc(p.ref) + '</span><div class="cd2">' + esc(p.cond || '—') + '</div></div>';
 }
 function card(p) {
-  return '<article class="cd' + (p.ref === highlight ? ' new' : '') + (SEL[p.ref] ? ' sel' : '') + '" data-r="' + esc(p.ref) + '" data-sig="' + esc(sigOf(p)) + '" tabindex="0">' + cardInner(p) + '</article>';
+  return '<article class="cd' + (p.ref === highlight ? ' new' : '') + (BULKSEL[p.ref] ? ' sel' : '') + '" data-r="' + esc(p.ref) + '" data-sig="' + esc(sigOf(p)) + '" tabindex="0">' + cardInner(p) + '</article>';
 }
 function renderMore() {
   if (!VIEW.length) { grid.innerHTML = '<div class="empty">Aucun résultat pour « ' + esc(query) + ' ».</div>'; return; }
@@ -1276,7 +1277,7 @@ dragScroll($('#cats')); dragScroll($('#subs'));
 
 
 /* ---------------- mode lot : classer plusieurs produits d'un coup ---------------- */
-function setBulkCount() { $('#bcount').textContent = Object.keys(SEL).length + ' sélectionné(s)'; }
+function setBulkCount() { $('#bcount').textContent = Object.keys(BULKSEL).length + ' sélectionné(s)'; }
 function fillBulkCats() {
   var sc = $('#b-cat'), ss = $('#b-scat');
   sc.innerHTML = '<option value="">— catégorie —</option>';
@@ -1290,28 +1291,28 @@ function fillBulkCats() {
 }
 function enterBulk() {
   requireUnlock(function () {
-    bulkMode = true; SEL = {};
+    bulkMode = true; BULKSEL = {};
     $('#bulkbar').hidden = false;
     fillBulkCats(); setBulkCount();
     toast('Mode lot : touchez les produits à classer, ou « + Résultats » pour prendre toute la liste affichée.', 'ok', 2600);
   });
 }
 function exitBulk() {
-  bulkMode = false; SEL = {};
+  bulkMode = false; BULKSEL = {};
   $('#bulkbar').hidden = true;
   var els = grid.querySelectorAll('.cd.sel');
   for (var i = 0; i < els.length; i++) els[i].classList.remove('sel');
 }
 function selectView() {
-  for (var i = 0; i < VIEW.length; i++) SEL[VIEW[i].ref] = 1;
+  for (var i = 0; i < VIEW.length; i++) BULKSEL[VIEW[i].ref] = 1;
   var els = grid.querySelectorAll('.cd');
-  for (var j = 0; j < els.length; j++) { var r = els[j].getAttribute('data-r'); if (SEL[r]) els[j].classList.add('sel'); }
+  for (var j = 0; j < els.length; j++) { var r = els[j].getAttribute('data-r'); if (BULKSEL[r]) els[j].classList.add('sel'); }
   setBulkCount();
 }
 function applyBulk() {
   var g = $('#b-cat').value, sg = $('#b-scat').value;
   if (!g) { toast('Choisissez d\'abord une catégorie.', 'warn'); return; }
-  var refs = Object.keys(SEL);
+  var refs = Object.keys(BULKSEL);
   if (!refs.length) { toast('Aucun produit sélectionné.', 'warn'); return; }
   for (var i = 0; i < refs.length; i++) {
     var p = findProd(refs[i]);
@@ -1378,8 +1379,8 @@ function init() {
     if (!c) return;
     var ref = c.getAttribute('data-r');
     if (bulkMode) {
-      if (SEL[ref]) delete SEL[ref]; else SEL[ref] = 1;
-      c.classList.toggle('sel', !!SEL[ref]);
+      if (BULKSEL[ref]) delete BULKSEL[ref]; else BULKSEL[ref] = 1;
+      c.classList.toggle('sel', !!BULKSEL[ref]);
       setBulkCount();
       return;
     }
