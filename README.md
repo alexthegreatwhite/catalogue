@@ -50,6 +50,13 @@ application (PWA : `manifest.webmanifest` + service worker).
   préalable ; choisissez catégorie + sous-catégorie puis **« Appliquer »** :
   tous les produits sélectionnés sont classés, enregistrés et synchronisés.
   « ✕ » quitte le mode sans rien changer.
+- **Confort mobile** : zoom désactivé (viewport verrouillé + gestes iOS/double-tap
+  bloqués) ; la barre des catégories est visible à l'arrivée sur la page puis
+  **se masque dès qu'on scrolle** — un bouton flottant 🗂️ (en bas à gauche)
+  la fait redescendre / remonter à la demande ; la barre d'état
+  (compteur · MAJ · sync) tient **sur une seule ligne** partout : compteur
+  `2989/3001`, MAJ `30/09 16:11`, badge sync court (`GitHub`, `Lecture`,
+  `Attente`, `Locale`, `Source KO`) avec le libellé complet en info-bulle.
 - **Responsive** : grille à 2 colonnes sur mobile (colonnes auto ≥ 160 px),
   **3 colonnes sur PC** (≥ 760 px, largeur contenue) ; fiche produit en modale
   centrée sur PC (≥ 820 px), panneau bas sur mobile.
