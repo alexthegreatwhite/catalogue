@@ -51,12 +51,19 @@ application (PWA : `manifest.webmanifest` + service worker).
   tous les produits sélectionnés sont classés, enregistrés et synchronisés.
   « ✕ » quitte le mode sans rien changer.
 - **Confort mobile** : zoom désactivé (viewport verrouillé + gestes iOS/double-tap
-  bloqués) ; la barre des catégories est visible à l'arrivée sur la page puis
-  **se masque dès qu'on scrolle** — un bouton flottant 🗂️ (en bas à gauche)
-  la fait redescendre / remonter à la demande ; la barre d'état
-  (compteur · MAJ · sync) tient **sur une seule ligne** partout : compteur
-  `2989/3001`, MAJ `30/09 16:11`, badge sync court (`GitHub`, `Lecture`,
-  `Attente`, `Locale`, `Source KO`) avec le libellé complet en info-bulle.
+  bloqués) ; la barre d'état (compteur · MAJ · sync) tient **sur une seule
+  ligne** partout : compteur `2989/3001`, MAJ `30/09 16:11`, badge sync court
+  (`GitHub`, `Lecture`, `Attente`, `Locale`, `Source KO`) avec le libellé
+  complet en info-bulle. Les **catégories s'affichent sous cette barre** ;
+  visibles à l'arrivée sur la page, elles **se masquent dès qu'on scrolle** —
+  une **petite flèche discrète (▴/▾) accrochée sous la barre d'état, centrée
+  sous la date de MAJ** (mini-onglet de 44 px, ne prend aucune ligne) les fait
+  remonter / redescendre à la demande ; quand les catégories sont repliées,
+  les produits démarrent juste sous la barre d'état. Sur ordinateur,
+  **survoler la barre d'état** (compteur · MAJ ·
+  sync) fait aussi apparaître les catégories — elles ne se replient **jamais**
+  au départ du curseur : uniquement via le bouton flèche ou un scroll (haut
+  ou bas).
 - **Responsive** : grille à 2 colonnes sur mobile (colonnes auto ≥ 160 px),
   **3 colonnes sur PC** (≥ 760 px, largeur contenue) ; fiche produit en modale
   centrée sur PC (≥ 820 px), panneau bas sur mobile.
