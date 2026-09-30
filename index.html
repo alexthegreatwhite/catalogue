@@ -339,9 +339,27 @@ function cmpAlpha(a, b) {
   if (x > y) return 1;
   return a.ref < b.ref ? -1 : (a.ref > b.ref ? 1 : 0);
 }
+/* Soigne la casse du cache local : même les enregistrements antérieurs à
+   cap1 ne peuvent plus resurgir en minuscules. Renvoie le nombre de champs
+   corrigés ; le cas échéant : sauvegarde locale + renvoi GitHub (c'est ce
+   qui ressoigne un dépôt qui aurait été régressé par un push/merge). */
+function healCH() {
+  var fs = ['n', 'm', 'p', 'd'], n = 0, ks = Object.keys(CH.up || {}), i, j, r, v, nv;
+  for (i = 0; i < ks.length; i++) {
+    r = CH.up[ks[i]];
+    if (!r) continue;
+    for (j = 0; j < fs.length; j++) {
+      v = r[fs[j]];
+      if (typeof v === 'string') { nv = cap1(v); if (nv !== v) { r[fs[j]] = nv; n++; } }
+    }
+  }
+  if (n) { saveLocal(); dirty = true; if (ghCanWrite()) schedulePush(); }
+  return n;
+}
 function buildAll() {
+  healCH();
   ALL = [];
-  function mk(x) { return { ref: x.r, nom: x.n, marque: x.m || '', pays: x.p || '', cond: x.c || '', desc: x.d || '', img: imgOf(x.r), base: !!BASEMAP[x.r] }; }
+  function mk(x) { return { ref: x.r, nom: cap1(x.n), marque: cap1(x.m), pays: cap1(x.p), cond: x.c || '', desc: cap1(x.d), img: imgOf(x.r), base: !!BASEMAP[x.r] }; }
   var seen = {}, i;
   for (i = 0; i < BASE.length; i++) { var r = BASE[i]; if (CH.del[r.r] || CH.up[r.r]) continue; seen[r.r] = 1; ALL.push(mk(r)); }
   var up = Object.keys(CH.up);

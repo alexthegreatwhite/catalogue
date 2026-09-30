@@ -24,7 +24,12 @@ application (PWA : `manifest.webmanifest` + service worker).
   casse, ex. sinogrammes, restent inchangées). **Tous les produits existants
   ont été migrés** : catalogue inline dans `index.html` et base partagée
   `data/userdb.json` (migration re-appliquée le 30/09/2026 après un merge
-  régressif sur `data/userdb.json`).
+  régressif sur `data/userdb.json`). De plus, l'**affichage** normalise
+  systématiquement (`mk()` + `cap1`) et le **cache local de chaque appareil
+  s'auto-soigne** à chaque reconstruction (`healCH()`, qui sauvegarde puis
+  repousse la casse correcte) : une minuscule ancienne ne peut plus resurgir,
+  même si un push/merge régressif ou un cache local réintroduit des données
+  brutes — les appareils se resynchronisent d'eux-mêmes au lancement.
 - **Responsive** : grille à 2 colonnes sur mobile (colonnes auto ≥ 160 px),
   **3 colonnes sur PC** (≥ 760 px, largeur contenue) ; fiche produit en modale
   centrée sur PC (≥ 820 px), panneau bas sur mobile.
