@@ -33,10 +33,12 @@ application (PWA : `manifest.webmanifest` + service worker).
 - **Catégories & sous-catégories** : bandeau de chips sous la barre de
   recherche (qui ne bouge pas) : **Boissons, Épicerie, Surgelé, Bazar** ; la
   rangée de sous-catégories (boissons sucrées/alcoolisées ; snacks, thés/cafés/confitures,
-  sauces/pâtes, conserves, riz, épices, nouilles / vermicelles, huiles / vinaigres, produits secs, farines,
+  sauces/pâtes, conserves, riz, épices, nouilles / vermicelles / galettes de riz, huiles / vinaigres, produits secs, farines,
   sucres ; fritures, fruits/légumes, viandes, poissons, plats préparés,
-  desserts, accompagnement) n'apparaît que lorsqu'une catégorie est choisie. Les filtres
-  catégorie + sous-catégorie + recherche se combinent. Chaque produit porte
+  desserts, accompagnement) n'apparaît que lorsqu'une catégorie est choisie. La recherche porte
+  toujours sur TOUT le catalogue (quel que soit le rayon choisi) ; choisir une
+  catégorie ou une sous-catégorie efface la recherche. Produits, catégories et
+  sous-catégories affichés par ordre alphabétique. Chaque produit porte
   une clé `g` (catégorie) et `sg` (sous-catégorie) dans le catalogue inline et
   `data/userdb.json` ; le formulaire ajout/modif propose deux listes
   dépendantes ; les cartes et la fiche affichent un badge coloré. Défilement
