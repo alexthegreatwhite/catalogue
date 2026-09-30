@@ -354,8 +354,8 @@ var CATS = [
   { id: 'epicerie', label: 'Épicerie', icon: '🛒', subs: [
     { id: 'snacks-sucres', label: 'Snacks sucrés' },
     { id: 'snacks-sales', label: 'Snacks salés' },
-    { id: 'thes-cafes', label: 'Thés / cafés' },
-    { id: 'sauces', label: 'Sauces' },
+    { id: 'thes-cafes', label: 'Thés / cafés / confitures' },
+    { id: 'sauces', label: 'Sauces / Pâtes' },
     { id: 'conserves-sucrees', label: 'Conserves sucrées' },
     { id: 'conserves-salees', label: 'Conserves salées' },
     { id: 'riz', label: 'Riz' },
@@ -442,6 +442,13 @@ function healCH() {
   for (i = 0; i < ks.length; i++) {
     r = CH.up[ks[i]];
     if (!r) continue;
+    /* catégorie manquante (cache antérieur aux tags) : on reprend celle du
+       catalogue de base si le produit y existe */
+    if (r.g == null && BASEMAP[ks[i]] && BASEMAP[ks[i]].g) {
+      r.g = BASEMAP[ks[i]].g;
+      if (r.sg == null) r.sg = BASEMAP[ks[i]].sg || '';
+      n++;
+    }
     for (j = 0; j < fs.length; j++) {
       v = r[fs[j]];
       if (typeof v === 'string') { nv = cap1(v); if (nv !== v) { r[fs[j]] = nv; n++; } }
@@ -671,7 +678,17 @@ function mergeRemote(remote, local, refs) {
   for (k in refs) {
     var hasUp = local.up && local.up[k], hasDel = local.del && local.del[k], hasPh = local.ph && local.ph[k];
     if (!hasUp && !hasDel && !hasPh) continue;   /* aucune intention locale : on garde le distant */
-    if (hasUp) out.up[k] = local.up[k]; else delete out.up[k];
+    if (hasUp) {
+      out.up[k] = local.up[k];
+      /* catégorie : l'absence locale n'est pas un choix explicite —
+         on reprend celle du distant si le local ne l'a pas (évite les
+         régressions de classement venant d'un cache antérieur aux tags) */
+      var rm = remote.up && remote.up[k];
+      if (rm) {
+        if (out.up[k].g == null && rm.g != null) out.up[k].g = rm.g;
+        if (out.up[k].sg == null && rm.sg != null) out.up[k].sg = rm.sg;
+      }
+    } else delete out.up[k];
     if (hasDel) out.del[k] = local.del[k]; else delete out.del[k];
     if (hasPh) out.ph[k] = local.ph[k]; else delete out.ph[k];
   }
