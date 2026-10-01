@@ -37,10 +37,8 @@ header{position:sticky;top:0;z-index:20;background:#ffffffe8;backdrop-filter:blu
 /* catégories : masquées dès qu'on scrolle, bouton flottant pour les rappeler */
 /* panneau catégories en OVERLAY : absolu sous le header, flotte au-dessus de
    la grille → aucune hauteur ne change, le catalogue ne se décale jamais */
-#catsbox{position:absolute;left:0;right:0;top:100%;z-index:39;background:rgba(255,255,255,.97);backdrop-filter:blur(6px);border-bottom:1px solid var(--ln);border-radius:0 0 14px 14px;box-shadow:0 12px 30px rgba(20,30,50,.18);padding:6px 12px 8px;max-height:42vh;overflow:hidden;transform:translateY(-10px);opacity:0;pointer-events:none;transition:transform .18s ease,opacity .18s ease}
+#catsbox{position:absolute;left:0;right:0;top:100%;z-index:39;background:#fff;border-bottom:1px solid var(--ln);border-radius:0 0 14px 14px;box-shadow:0 10px 24px rgba(20,30,50,.14);padding:6px 12px 8px;max-height:42vh;overflow:hidden;transform:translateY(-10px);opacity:0;pointer-events:none;transition:transform .18s ease,opacity .18s ease}
 header.cats-open #catsbox{transform:translateY(0);opacity:1;pointer-events:auto}
-#scrim{position:fixed;inset:0;z-index:35;background:rgba(15,20,35,.22);opacity:0;pointer-events:none;transition:opacity .18s ease}
-body.cats-open #scrim{opacity:1;pointer-events:auto}
 #catstoggle{position:absolute;left:50%;transform:translateX(-50%);top:100%;width:44px;height:15px;padding:0;border:1px solid var(--ln);border-top:0;border-radius:0 0 9px 9px;background:#fff;color:var(--t2);font-size:9px;line-height:1;cursor:pointer;box-shadow:0 2px 5px rgba(20,30,50,.10);z-index:6}
 #catstoggle:hover,#catstoggle:active{color:var(--br)}
 /* anti-zoom mobile : pas de zoom double-tap */
@@ -225,7 +223,6 @@ label textarea:focus{border-color:var(--br);background:#fff}
     <button id="m-imp" type="button">⬆️ Importer des modifications</button>
   </div>
 </header>
-<div id="scrim"></div>
 
 <main>
   <div id="grid"></div>
@@ -1268,6 +1265,7 @@ function renderCats() {
     var n = c.id === 'tout' ? ALL.length : ALL.filter(function (p) { return p.cat === c.id; }).length;
     el.appendChild(chipEl(c.icon + ' ' + c.label + ' <span class="n">' + n + '</span>', cat === c.id, function () {
       clearSearch(); cat = c.id; sub = 'all'; renderCats(); renderSubs(); window.scrollTo(0, 0); applyFilter();
+      if (!c.subs.length) setCatsBar(true);   /* catégorie sans sous-cat : picker refermé */
     }));
   });
   updateNav('catsWrap', 'cats');
@@ -1277,11 +1275,11 @@ function renderSubs() {
   var c = CATS.filter(function (x) { return x.id === cat; })[0];
   if (cat === 'tout' || !c || !c.subs.length) { wrap.hidden = true; updateNav('subsWrap', 'subs'); return; }
   wrap.hidden = false; el.innerHTML = '';
-  el.appendChild(chipEl('Sous-catégorie : Toutes', sub === 'all', function () { clearSearch(); sub = 'all'; renderSubs(); window.scrollTo(0, 0); applyFilter(); }));
+  el.appendChild(chipEl('Sous-catégorie : Toutes', sub === 'all', function () { clearSearch(); sub = 'all'; renderSubs(); window.scrollTo(0, 0); applyFilter(); setCatsBar(true); }));
   alpha(c.subs).forEach(function (s) {
     var n = ALL.filter(function (p) { return p.cat === cat && p.sub === s.id; }).length;
     el.appendChild(chipEl(s.label + ' <span class="n">' + n + '</span>', sub === s.id, function () {
-      clearSearch(); sub = s.id; renderSubs(); window.scrollTo(0, 0); applyFilter();
+      clearSearch(); sub = s.id; renderSubs(); window.scrollTo(0, 0); applyFilter(); setCatsBar(true);   /* choix fait : picker refermé */
     }));
   });
   updateNav('subsWrap', 'subs');
@@ -1419,7 +1417,6 @@ window.addEventListener('scroll', function () {
   }
   lastScrollY = y;
 }, { passive: true });
-$('#scrim').onclick = function () { setCatsBar(true); };
 $('#catstoggle').onclick = function () {
   lastScrollY = window.scrollY || window.pageYOffset || 0;  /* le tap ne doit pas compter comme un scroll */
   setCatsBar(!catsHidden);
