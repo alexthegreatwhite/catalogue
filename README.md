@@ -59,8 +59,11 @@ application (PWA : `manifest.webmanifest` + service worker).
   une **petite flèche discrète (▾) accrochée sous la barre d'état, centrée
   sous la date de MAJ** (mini-onglet de 44 px, ne prend aucune ligne) la fait
   redescendre à la demande ; **cette flèche disparaît dès que la barre des
-  catégories est affichée** (le repli se fait alors par le scroll) ; quand les
-  catégories sont repliées, les produits démarrent juste sous la barre d'état. Sur ordinateur,
+  catégories est affichée** ; le repli se fait **instantanément au scroll vers
+  le bas**, et la barre **revient en scrollant vers le haut** (après ~160 px
+  de remontée cumulée — jamais sur un petit premier scroll ; le compteur se
+  remet à zéro dès qu'on redescend) ; quand les catégories sont repliées, les
+  produits démarrent juste sous la barre d'état. Sur ordinateur,
   **survoler la barre d'état** (compteur · MAJ ·
   sync) fait aussi apparaître les catégories — elles ne se replient **jamais**
   au départ du curseur : uniquement via le bouton flèche ou un scroll (haut

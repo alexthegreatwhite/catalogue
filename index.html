@@ -361,7 +361,7 @@ var CATS = [
     { id: 'snacks-sales', label: 'Snacks salés' },
     { id: 'thes-cafes', label: 'Thés / cafés / confitures' },
     { id: 'sauces', label: 'Sauces / Pâtes' },
-    { id: 'conserves-sucrees', label: 'Conserves sucrées' },
+    { id: 'conserves-sucrees', label: 'Conserves sucrées / Desserts' },
     { id: 'conserves-salees', label: 'Conserves salées / Légumes salés' },
     { id: 'riz', label: 'Riz' },
     { id: 'epices-assaisonnements', label: 'Épices / Assaisonnements / Bouillons' },
@@ -378,7 +378,8 @@ var CATS = [
     { id: 'poissons-fruits-de-mer', label: 'Poissons / fruits de mer' },
     { id: 'plats-prepares', label: 'Plats préparés' },
     { id: 'desserts', label: 'Desserts' },
-    { id: 'accompagnement', label: 'Accompagnement' } ] },
+    { id: 'accompagnement', label: 'Accompagnement' },
+    { id: 'bouchees-raviolis', label: 'Bouchées / Raviolis' } ] },
   { id: 'bazar', label: 'Bazar', icon: '🧺', subs: [] }
 ];
 var CATLABEL = {}, SUBLABEL = {};
@@ -1372,6 +1373,7 @@ $('#b-exit').onclick = exitBulk;
 
 /* ---------------- barre de catégories : masquée au scroll, rappelable ---------------- */
 var catsHidden = false, lastScrollY = window.scrollY || 0, suppressHideUntil = 0;
+var upAccum = 0;   /* px remontés cumulés (remis à 0 à chaque scroll bas) */
 function setCatsBar(hidden) {
   catsHidden = hidden;
   if (!hidden) suppressHideUntil = Date.now() + 450;  /* anti-repli immédiat :
@@ -1391,8 +1393,24 @@ function setCatsBar(hidden) {
 }
 window.addEventListener('scroll', function () {
   var y = window.scrollY || window.pageYOffset || 0;
-  if (y < 24) { if (catsHidden) setCatsBar(false); }                 /* retour en haut : barre visible */
-  else if (Math.abs(y - lastScrollY) > 6 && !catsHidden && Date.now() > suppressHideUntil) setCatsBar(true); /* scroll haut OU bas : barre masquée */
+  var dy = y - lastScrollY;
+  var now = Date.now();
+  if (Math.abs(dy) <= 2) return;               /* micro-variations : ignorées */
+  if (y < 24) {                                /* sommet de page : barre visible */
+    if (catsHidden) setCatsBar(false);
+    upAccum = 0;
+  } else if (dy > 0) {                         /* scroll bas : repli IMMÉDIAT */
+    upAccum = 0; lastScrollY = y;
+    if (!catsHidden && now > suppressHideUntil) setCatsBar(true);
+    return;
+  } else {                                     /* scroll haut : barre revient après
+                                                  ~160 px de remontée cumulée —
+                                                  jamais sur un petit 1er scroll */
+    upAccum += -dy;
+    lastScrollY = y;
+    if (upAccum >= 160 && catsHidden) { setCatsBar(false); upAccum = 0; }
+    return;
+  }
   lastScrollY = y;
 }, { passive: true });
 $('#catstoggle').onclick = function () {
