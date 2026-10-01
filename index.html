@@ -1264,8 +1264,7 @@ function renderCats() {
   ordered.forEach(function (c) {
     var n = c.id === 'tout' ? ALL.length : ALL.filter(function (p) { return p.cat === c.id; }).length;
     el.appendChild(chipEl(c.icon + ' ' + c.label + ' <span class="n">' + n + '</span>', cat === c.id, function () {
-      clearSearch(); cat = c.id; sub = 'all'; renderCats(); renderSubs(); window.scrollTo(0, 0); applyFilter();
-      if (!c.subs.length) setCatsBar(true);   /* catégorie sans sous-cat : picker refermé */
+      clearSearch(); cat = c.id; sub = 'all'; renderCats(); renderSubs(); ignoreScrollUntil = Date.now() + 500; window.scrollTo(0, 0); applyFilter();
     }));
   });
   updateNav('catsWrap', 'cats');
@@ -1275,11 +1274,11 @@ function renderSubs() {
   var c = CATS.filter(function (x) { return x.id === cat; })[0];
   if (cat === 'tout' || !c || !c.subs.length) { wrap.hidden = true; updateNav('subsWrap', 'subs'); return; }
   wrap.hidden = false; el.innerHTML = '';
-  el.appendChild(chipEl('Sous-catégorie : Toutes', sub === 'all', function () { clearSearch(); sub = 'all'; renderSubs(); window.scrollTo(0, 0); applyFilter(); setCatsBar(true); }));
+  el.appendChild(chipEl('Sous-catégorie : Toutes', sub === 'all', function () { clearSearch(); sub = 'all'; renderSubs(); ignoreScrollUntil = Date.now() + 500; window.scrollTo(0, 0); applyFilter(); }));
   alpha(c.subs).forEach(function (s) {
     var n = ALL.filter(function (p) { return p.cat === cat && p.sub === s.id; }).length;
     el.appendChild(chipEl(s.label + ' <span class="n">' + n + '</span>', sub === s.id, function () {
-      clearSearch(); sub = s.id; renderSubs(); window.scrollTo(0, 0); applyFilter(); setCatsBar(true);   /* choix fait : picker refermé */
+      clearSearch(); sub = s.id; renderSubs(); ignoreScrollUntil = Date.now() + 500; window.scrollTo(0, 0); applyFilter();
     }));
   });
   updateNav('subsWrap', 'subs');
@@ -1377,6 +1376,7 @@ $('#b-exit').onclick = exitBulk;
 /* ---------------- barre de catégories : masquée au scroll, rappelable ---------------- */
 var catsHidden = false, lastScrollY = window.scrollY || 0, suppressHideUntil = 0;
 var upAccum = 0;   /* px remontés cumulés (remis à 0 à chaque scroll bas) */
+var ignoreScrollUntil = 0;   /* fenêtre pendant laquelle les sauts de scroll programmés sont ignorés */
 function setCatsBar(hidden) {
   catsHidden = hidden;
   if (!hidden) suppressHideUntil = Date.now() + 450;  /* anti-repli immédiat :
@@ -1399,6 +1399,7 @@ window.addEventListener('scroll', function () {
   var y = window.scrollY || window.pageYOffset || 0;
   var dy = y - lastScrollY;
   var now = Date.now();
+  if (now < ignoreScrollUntil) { lastScrollY = y; return; }  /* saut programmé : ignoré */
   if (Math.abs(dy) <= 2) return;               /* micro-variations : ignorées */
   if (y < 24) {                                /* sommet de page : barre visible */
     if (catsHidden) setCatsBar(false);
@@ -1447,6 +1448,7 @@ function init() {
   dirty = JSON.stringify(CH) !== JSON.stringify(lastRev() || emptyCH());
   buildAll(); applyFilter(true); updateSyncBadge();
   renderCats(); renderSubs();
+  setCatsBar(false);   /* à l'arrivée sur le site : barre des catégories présente */
 
   /* réconciliation : le distant gagne, sauf pour les refs modifiées localement
      depuis la dernière sync (ainsi un appareil qui n'a rien changé adopte
