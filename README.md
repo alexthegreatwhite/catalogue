@@ -70,7 +70,9 @@ application (PWA : `manifest.webmanifest` + service worker).
   ou bas). Le panneau des catégories est un **OVERLAY opaque** (fond blanc,
   ombre légère, **aucun voile ni assombrissement de l'écran**) qui flotte
   au-dessus de la grille et s'ouvre/ferme par transform + opacity → **le
-  catalogue ne se décale jamais** ; la barre **reste ouverte après la
+  catalogue ne se décale jamais** — **sauf tout en haut de la page**, où la
+  barre repasse **dans le flux** et décale le catalogue afin de ne pas masquer
+  les premiers produits. La barre **reste ouverte après la
   sélection** d'une catégorie ou d'une sous-catégorie (les sauts de scroll
   programmés au moment du choix sont ignorés par la logique montrer/masquer).
 - **Responsive** : grille à 2 colonnes sur mobile (colonnes auto ≥ 160 px),

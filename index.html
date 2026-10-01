@@ -39,6 +39,9 @@ header{position:sticky;top:0;z-index:20;background:#ffffffe8;backdrop-filter:blu
    la grille → aucune hauteur ne change, le catalogue ne se décale jamais */
 #catsbox{position:absolute;left:0;right:0;top:100%;z-index:39;background:#fff;border-bottom:1px solid var(--ln);border-radius:0 0 14px 14px;box-shadow:0 10px 24px rgba(20,30,50,.14);padding:6px 12px 8px;max-height:42vh;overflow:hidden;transform:translateY(-10px);opacity:0;pointer-events:none;transition:transform .18s ease,opacity .18s ease}
 header.cats-open #catsbox{transform:translateY(0);opacity:1;pointer-events:auto}
+/* en HAUT de page : barre DANS le flux (décale le catalogue pour ne pas
+   masquer les premiers produits) ; plus bas : overlay flottant */
+header.cats-open.cats-inline #catsbox{position:relative;top:auto;left:auto;right:auto;transform:none;opacity:1;pointer-events:auto;box-shadow:none;border-radius:0;max-height:none}
 #catstoggle{position:absolute;left:50%;transform:translateX(-50%);top:100%;width:44px;height:15px;padding:0;border:1px solid var(--ln);border-top:0;border-radius:0 0 9px 9px;background:#fff;color:var(--t2);font-size:9px;line-height:1;cursor:pointer;box-shadow:0 2px 5px rgba(20,30,50,.10);z-index:6}
 #catstoggle:hover,#catstoggle:active{color:var(--br)}
 /* anti-zoom mobile : pas de zoom double-tap */
@@ -1394,29 +1397,34 @@ function setCatsBar(hidden) {
     b.title = 'Rafficher la barre des catégories';
   }
   updateNav('catsWrap', 'cats'); updateNav('subsWrap', 'subs');
+  updateCatMode();
+}
+/* tout en haut de la page : barre dans le flux (pousse le catalogue) ;
+   dès qu'on est scrollé : barre en overlay (ne décale rien) */
+function updateCatMode() {
+  var h = document.querySelector('header');
+  if (h) h.classList.toggle('cats-inline', !catsHidden && (window.scrollY || window.pageYOffset || 0) < 24);
 }
 window.addEventListener('scroll', function () {
   var y = window.scrollY || window.pageYOffset || 0;
   var dy = y - lastScrollY;
   var now = Date.now();
-  if (now < ignoreScrollUntil) { lastScrollY = y; return; }  /* saut programmé : ignoré */
-  if (Math.abs(dy) <= 2) return;               /* micro-variations : ignorées */
-  if (y < 24) {                                /* sommet de page : barre visible */
-    if (catsHidden) setCatsBar(false);
-    upAccum = 0;
-  } else if (dy > 0) {                         /* scroll bas : repli IMMÉDIAT */
-    upAccum = 0; lastScrollY = y;
-    if (!catsHidden && now > suppressHideUntil) setCatsBar(true);
-    return;
-  } else {                                     /* scroll haut : barre revient après
-                                                  ~160 px de remontée cumulée —
-                                                  jamais sur un petit 1er scroll */
-    upAccum += -dy;
+  if (now < ignoreScrollUntil) {
+    lastScrollY = y;                           /* saut programmé : ignoré */
+  } else if (Math.abs(dy) > 2) {
+    if (y < 24) {                              /* sommet : barre visible, mode flux */
+      if (catsHidden) setCatsBar(false);
+      upAccum = 0;
+    } else if (dy > 0) {                       /* scroll bas : repli IMMÉDIAT */
+      upAccum = 0;
+      if (!catsHidden && now > suppressHideUntil) setCatsBar(true);
+    } else {                                   /* scroll haut : retour après ~160 px cumulés */
+      upAccum += -dy;
+      if (upAccum >= 160 && catsHidden) { setCatsBar(false); upAccum = 0; }
+    }
     lastScrollY = y;
-    if (upAccum >= 160 && catsHidden) { setCatsBar(false); upAccum = 0; }
-    return;
   }
-  lastScrollY = y;
+  updateCatMode();
 }, { passive: true });
 $('#catstoggle').onclick = function () {
   lastScrollY = window.scrollY || window.pageYOffset || 0;  /* le tap ne doit pas compter comme un scroll */
