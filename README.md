@@ -151,8 +151,9 @@ application (PWA : `manifest.webmanifest` + service worker).
   l'ouverture du panneau** puis restaurée (double scrollTo +
   requestAnimationFrame).
 - **Ajout / modification / suppression** de **tous** les produits.
-- **Mot de passe `PsP`** demandé **une seule fois par session** pour ajouter /
-  modifier / supprimer.
+- **Mot de passe** demandé **une seule fois par session** pour ajouter /
+  modifier / supprimer (valeur communiquée séparément ; seule une empreinte
+  salée figure dans `index.html`, jamais en clair dans ce README).
 - **Ultra-léger** : zéro dépendance, zéro framework ; un seul fichier HTML
   auto-suffisant (~333 Ko, gzip ~70 Ko) qui marche aussi en `file://` et dans
   les aperçus (CSS/JS inline, aucune ressource externe).
@@ -276,9 +277,10 @@ requis).
 
 ## Mot de passe
 
-`PsP`, vérifié côté client par empreinte FNV-1a salée (`PASS_HASH` dans
-`index.html`). Demandé une fois par session (`sessionStorage`). C'est un verrou
-de confort, pas une sécurité serveur (impossible en statique).
+Valeur communiquée séparément à l'équipe — **jamais écrite dans ce README ni
+en clair dans le code** : seule l'empreinte FNV-1a salée (`PASS_HASH`) figure
+dans `index.html`. Demandé une fois par session (`sessionStorage`). C'est un
+verrou de confort, pas une sécurité serveur (impossible en statique).
 
 ## Mettre en ligne sur GitHub Pages
 

@@ -346,7 +346,7 @@ label textarea:focus{border-color:var(--br);background:#fff}
 'use strict';
 var $ = function (s) { return document.querySelector(s); };
 var PAGE = 60, IMG = 360;
-var PASS_HASH = 2299394076, SEL = 'cataloguepro.v2:';
+var PASS_HASH = 2387265014, SEL = 'cataloguepro.v2:';
 var K_OK = 'catpro.ok', K_CH = 'catpro.ch.v1', K_GH = 'catpro.gh.v1', K_REV = 'catpro.rev.v1';
 var PLACEHOLDER = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 360"><rect width="360" height="360" fill="#fff"/>' +
@@ -453,13 +453,6 @@ function healCH() {
   for (i = 0; i < ks.length; i++) {
     r = CH.up[ks[i]];
     if (!r) continue;
-    /* catégorie manquante (cache antérieur aux tags) : on reprend celle du
-       catalogue de base si le produit y existe */
-    if (r.g == null && BASEMAP[ks[i]] && BASEMAP[ks[i]].g) {
-      r.g = BASEMAP[ks[i]].g;
-      if (r.sg == null) r.sg = BASEMAP[ks[i]].sg || '';
-      n++;
-    }
     for (j = 0; j < fs.length; j++) {
       v = r[fs[j]];
       if (typeof v === 'string') { nv = cap1(v); if (nv !== v) { r[fs[j]] = nv; n++; } }
@@ -471,7 +464,7 @@ function healCH() {
 function buildAll() {
   healCH();
   ALL = [];
-  function mk(x) { return { ref: x.r, nom: cap1(x.n), marque: cap1(x.m), pays: cap1(x.p), cond: x.c || '', desc: cap1(x.d), cat: x.g || '', sub: x.sg || '', img: imgOf(x.r), base: !!BASEMAP[x.r] }; }
+  function mk(x) { return { ref: x.r, nom: cap1(x.n), marque: cap1(x.m), pays: cap1(x.p), cond: x.c || '', desc: cap1(x.d), cat: x.g == null ? ((BASEMAP[x.r] && BASEMAP[x.r].g) || '') : x.g, sub: x.sg == null ? ((BASEMAP[x.r] && BASEMAP[x.r].sg) || '') : x.sg, img: imgOf(x.r), base: !!BASEMAP[x.r] }; }
   var seen = {}, i;
   for (i = 0; i < BASE.length; i++) { var r = BASE[i]; if (CH.del[r.r] || CH.up[r.r]) continue; seen[r.r] = 1; ALL.push(mk(r)); }
   var up = Object.keys(CH.up);
