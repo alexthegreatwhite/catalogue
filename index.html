@@ -1398,13 +1398,38 @@ function setCatsBar(hidden) {
   }
   updateNav('catsWrap', 'cats'); updateNav('subsWrap', 'subs');
   updateCatMode();
+  if (!hidden) {
+    if ((window.scrollY || window.pageYOffset || 0) >= 24 && !cursorOnBar()) armCatAutoHide();
+    else disarmCatAutoHide();
+  } else disarmCatAutoHide();
 }
 /* tout en haut de la page : barre dans le flux (pousse le catalogue) ;
    dès qu'on est scrollé : barre en overlay (ne décale rien) */
 function updateCatMode() {
   var h = document.querySelector('header');
-  if (h) h.classList.toggle('cats-inline', !catsHidden && (window.scrollY || window.pageYOffset || 0) < 24);
+  var inline = !catsHidden && (window.scrollY || window.pageYOffset || 0) < 24;
+  if (h) h.classList.toggle('cats-inline', inline);
+  if (inline) disarmCatAutoHide();   /* tout en haut (dans le flux) : pas d'auto-masquage */
 }
+/* auto-masquage 2 s : si le curseur n'est PAS sur la barre (panneau catégories
+   ou barre d'état) pendant 2 secondes, la barre overlay se replie d'elle-même
+   (appareils à pointeur uniquement ; tactile = comportement inchangé) */
+var hoverPtr = !!(window.matchMedia && window.matchMedia('(hover: hover)').matches);
+var lastMX = -1, lastMY = -1, autoHideTimer = 0;
+if (hoverPtr) window.addEventListener('mousemove', function (e) { lastMX = e.clientX; lastMY = e.clientY; }, { passive: true });
+function cursorOnBar() {
+  if (lastMX < 0) return false;
+  var el = document.elementFromPoint(lastMX, lastMY);
+  return !!(el && (el.closest('#catsbox') || el.closest('.bar')));
+}
+function armCatAutoHide() {
+  if (!hoverPtr) return;
+  clearTimeout(autoHideTimer);
+  autoHideTimer = setTimeout(function () {
+    if (!catsHidden && (window.scrollY || window.pageYOffset || 0) >= 24 && !cursorOnBar()) setCatsBar(true);
+  }, 2000);
+}
+function disarmCatAutoHide() { clearTimeout(autoHideTimer); }
 window.addEventListener('scroll', function () {
   var y = window.scrollY || window.pageYOffset || 0;
   var dy = y - lastScrollY;
@@ -1439,7 +1464,14 @@ if (window.matchMedia && window.matchMedia('(hover: hover)').matches) {
     if (!barEl) return;
     barEl.addEventListener('mouseenter', function () {
       if (catsHidden) setCatsBar(false);
+      disarmCatAutoHide();
     });
+    barEl.addEventListener('mouseleave', function () { armCatAutoHide(); });
+    var panel = $('#catsbox');
+    if (panel) {
+      panel.addEventListener('mouseenter', function () { disarmCatAutoHide(); });
+      panel.addEventListener('mouseleave', function () { armCatAutoHide(); });
+    }
   })();
 }
 

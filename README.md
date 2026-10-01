@@ -75,6 +75,10 @@ application (PWA : `manifest.webmanifest` + service worker).
   les premiers produits. La barre **reste ouverte après la
   sélection** d'une catégorie ou d'une sous-catégorie (les sauts de scroll
   programmés au moment du choix sont ignorés par la logique montrer/masquer).
+  Sur ordinateur, si le curseur **n'est pas sur la barre** (panneau ou barre
+  d'état) pendant **2 secondes**, la barre overlay se replie toute seule ;
+  elle reste ouverte tant que le curseur y reste (et toujours, tout en haut
+  de la page, où elle est dans le flux).
 - **Responsive** : grille à 2 colonnes sur mobile (colonnes auto ≥ 160 px),
   **3 colonnes sur PC** (≥ 760 px, largeur contenue) ; fiche produit en modale
   centrée sur PC (≥ 820 px), panneau bas sur mobile.
