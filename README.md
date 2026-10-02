@@ -108,7 +108,12 @@ application (PWA : `manifest.webmanifest` + service worker).
 - **Suppressions** : le bouton « ♻️ Restaurer les produits supprimés » a été
   **retiré** du menu ⋯ (une suppression est définitive). Seul recours : recréer
   un produit avec le même code — l'enregistrement retire automatiquement son
-  tombstone et le réaffiche immédiatement, ici et partout après synchronisation. Le diagnostic (⋯ → ℹ️ Source des données /
+  tombstone et le réaffiche immédiatement, ici et partout après synchronisation.
+  Une suppression **ou un changement de code** écrit un **tombstone daté** dans
+  la base partagée pour **tous** les produits (catalogue de base **ou** fiche
+  créée) : une fiche supprimée ou renommée sur un appareil ne peut plus être
+  ressuscitée par un appareil dont le cache local est périmé (c'était la cause
+  des doublons après changement de code). Le diagnostic (⋯ → ℹ️ Source des données /
   diagnostic) précise le dépôt résolu, la dernière URL lue, le résultat et le
   nombre de modifications **non poussées**.
 - **Date/heure de la dernière MAJ affichées en permanence** dans la barre du
@@ -225,12 +230,17 @@ Détails d'implémentation :
 Format de `data/userdb.json` :
 ```json
 {
-  "up":  { "<code>": { "r": "<code>", "n": "nom", "m": "marque", "p": "pays", "c": "conditionnement", "d": "description" } },
-  "del": { "<code>": 1 },
+  "up":  { "<code>": { "r": "<code>", "n": "nom", "m": "marque", "p": "pays", "c": "conditionnement", "d": "description", "_t": 1790931154736 } },
+  "del": { "<code>": 1790931154736 },
   "ph":  { "<code>": "data:image/webp;base64,…" },
   "_maj": "<horodatage ISO du dernier commit>"
 }
 ```
+`_t` = horodatage (ms) de la dernière écriture de la fiche ; la valeur d'une
+entrée `del` = horodatage (ms) de la suppression (tombstone). Les écritures
+antérieures à ce mécanisme (fiches sans `_t`, tombstones à `1`) sont traitées
+comme les plus anciennes possibles : toute écriture datée les remplace, et à
+égalité le local gagne (comportement historique).
 
 ### Sync GitHub temps réel
 1. **Aucun réglage n'est nécessaire pour consulter** : quand le site est servi
@@ -245,12 +255,18 @@ Format de `data/userdb.json` :
 3. Chaque ajout / modification / suppression est **commité immédiatement** dans
    `data/userdb.json` ; les autres appareils l'adoptent au chargement.
    **Réconciliation** : un appareil sans modif locale adopte toujours le
-   distant ; s'il a des modifs locales récentes, elles sont fusionnées (local
-   prioritaire sur ses refs) puis poussées. **Garde anti-retour** : si le
+   distant ; s'il a des modifs locales, elles sont fusionnées avec le distant
+   **au plus récent** (« dernier écrivant gagne » : chaque écriture porte un
+   horodatage — `_t` des fiches, valeur du tombstone pour les suppressions ;
+   à égalité, le local gagne) puis poussées. **Garde anti-retour** : si le
    dépôt a perdu des modifications déjà poussées, elles sont repoussées au lieu
-   d'être écrasées. **Suppressions définitives** : une suppression locale est un
-   tombstone qui survit à toute adoption du distant (cache CDN périmé, commit
-   perdu) et est repoussée si le dépôt ne la contient pas. Le sha du fichier est
+   d'être écrasées. **Suppressions définitives** : une suppression locale (ou
+   un changement de code, qui supprime l'ancien code) écrit un **tombstone
+   daté** pour **tous** les produits — base ou créés — qui survit à toute
+   adoption du distant (cache CDN périmé, commit perdu) et ne peut être écarté
+   que par une écriture strictement plus récente (ex. re-création du même
+   code). Un appareil au cache local périmé ne peut donc plus ressusciter une
+   fiche supprimée ou renommée ailleurs. Le sha du fichier est
    lu sur la branche d'écriture et un conflit « does not match » déclenche un
    retry automatique.
    Badges : `sync : GitHub` / `sync : lecture GitHub` / `sync : en attente` /
