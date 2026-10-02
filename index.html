@@ -65,8 +65,8 @@ main{padding:12px 12px 96px;max-width:1080px;margin:0 auto}
 @media(min-width:900px){.cd .im{height:200px}}
 .cd .im img{width:100%;height:100%;object-fit:contain;object-position:center}
 .cd .bd{padding:9px 10px 11px;display:flex;flex-direction:column;gap:4px}
-.cd .bcbar{margin-top:2px;background:#fff;padding:4px 8px 3px;border-radius:6px}
-.cd .bcbar svg{display:block;width:100%;height:34px;fill:#0c1526}
+.cd .bcbar{margin:2px -6px 0;background:#fff;padding:3px 2px;border-radius:6px;overflow-x:auto}
+.cd .bcbar svg{display:block;margin:0 auto}
 .cd .nm{font-weight:700;font-size:14.5px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .cd .ds{color:var(--t2);font-size:12px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .cd .mk{color:var(--t2);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -127,12 +127,12 @@ label textarea:focus{border-color:var(--br);background:#fff}
 .dcell span{display:block;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--t2);margin-bottom:3px}
 .dcell b{display:block;font-size:14px;font-weight:600;overflow-wrap:anywhere}
 .dcell b.dbio{white-space:pre-wrap;font-weight:500;line-height:1.5}
-/* code-barres COMPACT */
-.dcell.bc b{display:flex;align-items:center;gap:10px}
-.dcell.bc svg{width:240px;max-width:60%;height:56px;flex:none;fill:var(--tx)}
-.dcell.bc2 svg{height:40px}
-.dcell.bc b{background:#fff;padding:6px 10px;border-radius:8px;justify-content:center}
-.dcell.bc i{font-style:normal;font-family:ui-monospace,monospace;font-size:12.5px;font-weight:700;letter-spacing:.1em;color:var(--tx)}
+/* code-barres fiche : taille naturelle du SVG (pixels entiers), JAMAIS étiré ;
+   si l'écran est très étroit, la cellule défile au lieu de déformer les barres */
+.dcell.bc b{display:block;background:#fff;padding:6px 4px;border-radius:8px;overflow-x:auto;text-align:center}
+.dcell.bc svg{display:block;margin:0 auto}
+/* les 13 chiffres scannés, sous le code-barres (saisie manuelle possible en caisse) */
+.dcell.bc i{display:block;margin-top:6px;font-style:normal;font-family:ui-monospace,monospace;font-size:13.5px;font-weight:700;letter-spacing:.3em;text-indent:.3em;color:#000}
 /* barre d'actions toujours visible en bas de la fiche */
 .dacts{flex:none;display:flex;gap:9px;padding:11px 16px calc(13px + env(safe-area-inset-bottom));border-top:1px solid var(--ln);background:#fff}
 .dacts .b{flex:1}
@@ -1018,21 +1018,34 @@ function c128bits(text) {
   emit(C128[106], 7);
   return bits;
 }
-function c128(text) { return bitsToSvg(c128bits(text), text, 40); }
-/* transforme les modules en barres fusionnées (1 rect par plage noire) */
-function bitsToSvg(bits, text, h) {
-  /* shape-rendering crispEdges : barres nettes (pas d'anti-crénelage qui
-     brouille le scan) ; les zones calmes blanches sont ajoutées en CSS */
-  var svg = '<svg viewBox="0 0 ' + bits.length + ' ' + h + '" preserveAspectRatio="none" shape-rendering="crispEdges" aria-label="Code-barres ' + esc(text) + '" data-code="' + esc(text) + '">';
-  var i = 0;
+/* --- rendu « plein pixels » : 1 module = m px ENTIERS, JAMAIS étiré ---
+   Avant, le SVG (123 modules) était étiré par le CSS (preserveAspectRatio:
+   none + largeur fixe 240px / 100%) : ≈ 1,95 px par module en fiche, ≈ 1 px
+   sur les cartes → l'arrondi pixel donnait des barres de largeurs INÉGALES
+   (3 à 16 px écran mesurés, soit ±300 %). Or la douchette décode les
+   LARGEURS RELATIVES des barres : le code n'était donc lu qu'à une
+   distance / un angle « chanceux ». Maintenant chaque module fait
+   exactement m px CSS (× DPR entier → largeur écran parfaitement
+   constante), barres en NOIR PUR, et la zone calme blanche est INTÉGRÉE
+   au SVG (q modules de chaque côté, norme GS1) : scan fiable à distance
+   et angle normaux. */
+function bitsToSvg(bits, text, m, h, q) {
+  var W = bits.length + q * 2, i = 0, st;
+  var svg = '<svg width="' + (W * m) + '" height="' + h + '" viewBox="0 0 ' + W + ' ' + h + '" shape-rendering="crispEdges" role="img" aria-label="Code-barres ' + esc(text) + '" data-code="' + esc(text) + '">';
+  svg += '<rect width="' + W + '" height="' + h + '" fill="#fff"/>';
   while (i < bits.length) {
     if (bits[i] === '1') {
-      var st = i; while (i < bits.length && bits[i] === '1') i++;
-      svg += '<rect x="' + st + '" width="' + (i - st) + '" y="0" height="' + h + '"/>';
+      st = i; while (i < bits.length && bits[i] === '1') i++;
+      svg += '<rect x="' + (st + q) + '" width="' + (i - st) + '" height="' + h + '" fill="#000"/>';
     } else i++;
   }
   return svg + '</svg>';
 }
+function mq(px) { return !!(window.matchMedia && window.matchMedia('(min-width:' + px + 'px)').matches); }
+/* carte : compact — module 1 px (2 px sur grand écran où les cartes sont larges) */
+function c128(text) { var big = mq(1000); return bitsToSvg(c128bits(text), text, big ? 2 : 1, 48, 6); }
+/* fiche : grand format « caisse » — module 2 px mobile / 3 px PC, barres hautes */
+function c128big(text) { var big = mq(820); return bitsToSvg(c128bits(text), text, big ? 3 : 2, big ? 110 : 90, big ? 10 : 8); }
 
 /* ---------------- code caisse (Code 128) ---------------- */
 /* Valeur scannée par la caisse : le code produit complété par des « 0 » à
@@ -1063,7 +1076,7 @@ function openDetail(p) {
         '<div class="dcell wide"><span>Catégorie</span><b>' + esc(p.cat ? (CATLABEL[p.cat] || p.cat) + (p.sub ? ' — ' + (SUBLABEL[p.sub] || p.sub) : '') : 'Non classé') + '</b></div>' +
         '<div class="dcell wide"><span>Conditionnement</span><b>' + esc(p.cond || 'Non précisé') + '</b></div>' +
         '<div class="dcell wide"><span>Description</span><b class="dbio">' + esc(p.desc || 'Non renseignée') + '</b></div>' +
-        '<div class="dcell wide bc"><span>Code-barres caisse (Code 128)</span><b>' + c128(caisseOf(p.ref)) + '</b></div>' +
+        '<div class="dcell wide bc"><span>Code-barres caisse (Code 128)</span><b>' + c128big(caisseOf(p.ref)) + '<i>' + esc(caisseOf(p.ref)) + '</i></b></div>' +
       '</div>' +
     '</div>' +
     '<div class="dacts">' +

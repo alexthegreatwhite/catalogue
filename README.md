@@ -195,9 +195,20 @@ Détails d'implémentation :
 - encodage compact : paires de chiffres (Code C) pour les longueurs paires,
   premier chiffre en Code B puis bascule en Code C pour les longueurs
   impaires (13 chiffres → 123 modules) ;
-- rendu optimisé pour le scan : barres nettes (`shape-rendering:
-  crispEdges`), zones calmes blanches (fond et marges CSS), hauteur 34 px en
-  liste et 56 px en fiche ;
+- rendu **plein pixels** pour un scan fiable en caisse : **1 module = 1 px
+  entier** sur les cartes (2 px sur grand écran) et **2 px sur mobile /
+  3 px sur PC** en fiche — le SVG n'est **jamais étiré** (`width`/`height`
+  fixes, plus de `preserveAspectRatio="none"`). C'était la cause des scans
+  difficiles : étiré sur 240 px (≈ 1,95 px/module), l'arrondi pixel rendait
+  les barres inégales (3 à 16 px écran, ±300 %) et la douchette ne décodait
+  qu'à une distance/angle précis ;
+- barres en **noir pur** (`#000`, contraste maximal sur écran), **zone calme
+  blanche intégrée au SVG** (6 à 10 modules de chaque côté, norme GS1),
+  barres nettes (`shape-rendering: crispEdges`), hauteur **48 px** en liste
+  et **90 px (mobile) / 110 px (PC)** en fiche ;
+- en fiche, les **13 chiffres scannés** sont affichés sous le code-barres
+  (saisie manuelle possible si le scan échoue) ; si l'écran est trop étroit,
+  la cellule défile horizontalement au lieu de déformer les barres ;
 - chaque SVG porte `data-code` et `aria-label` avec la valeur scannée.
 
 ## Description du produit
@@ -287,9 +298,9 @@ modifications · ⬆️ Importer des modifications.
 
 Panneau (modale centrée sur PC, panneau bas sur mobile) avec : photo grand
 format, nom, code produit en badge, marque, pays d'origine, conditionnement,
-**description**, **code-barres caisse** (seul code-barres de la fiche, sans
-texte à côté) et les boutons **✏️ Modifier** / **🗑 Supprimer** (mot de passe
-requis).
+**description**, **code-barres caisse** en grand format scannable (seul
+code-barres de la fiche ; les 13 chiffres scannés sont affichés en dessous)
+et les boutons **✏️ Modifier** / **🗑 Supprimer** (mot de passe requis).
 
 ## Mot de passe
 
