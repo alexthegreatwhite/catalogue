@@ -658,18 +658,22 @@ var AI_PROMPT = 'Remove the background from this product photo and replace it wi
    ⚠️ Cette clé est visible dans le code source du site (site 100 % statique,
    pas de serveur pour la masquer). À créer sur aistudio.google.com, en la
    limitant à l'API « Generative Language API » et en restant au palier gratuit
-   (aucune facturation possible). Pour la changer : remplacer la valeur ci-
-   dessous (une seule ligne). Laisser le placeholder = IA désactivée. */
-var AI_KEY_PLACEHOLDER = 'AQ.Ab8RN6KcEsXtr-nyNjBZmBw51anbX9Fs2QUv_HTJFeADMqWd7A';
-var AI_KEY = AI_KEY_PLACEHOLDER;   /* ← collez votre clé Gemini ici */
-/* aiKey() : la clé intégrée, sauf si un administrateur a défini un override
-   local (console/outils) — jamais exposé dans l'interface. */
+   (aucune facturation possible). */
+
+/* ══════════════ LA SEULE LIGNE À MODIFIER ══════════════
+   Collez votre clé Gemini entre les guillemets ci-dessous :
+     var AI_KEY = 'AQ.Ab8RN6KcEsXtr-nyNjBZmBw51anbX9Fs2QUv_HTJFeADMqWd7A';
+   Laissez vide ('') pour désactiver l'IA.                    */
+var AI_KEY = '';
+/* ═══════════════════════════════════════════════════════ */
+
+/* aiKey() : la clé intégrée ci-dessus, sauf si un administrateur a défini un
+   override local (console/outils) — jamais exposé dans l'interface. */
 function aiCfg() { try { return JSON.parse(localStorage.getItem(K_AI)) || {}; } catch (e) { return {}; } }
 function aiKey() {
   var manual = String(aiCfg().key || '').trim();
   if (manual) return manual;
-  var k = String(AI_KEY || '').trim();
-  return (k && k !== AI_KEY_PLACEHOLDER) ? k : '';
+  return String(AI_KEY || '').trim();
 }
 function saveAIKey(k) { try { localStorage.setItem(K_AI, JSON.stringify({ key: k })); } catch (e) {} }
 function loadJobs() {

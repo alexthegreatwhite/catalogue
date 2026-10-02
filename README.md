@@ -252,8 +252,9 @@ Détails d'implémentation :
       est **visible dans le code source** (`index.html`, variable `AI_KEY`).
       Créez-la sur **aistudio.google.com**, **limitez-la à l'API « Generative
       Language API »** et **restez au palier gratuit** (aucune facturation
-      possible). Pour la changer : remplacer la valeur de `AI_KEY` (une ligne).
-      Laisser le placeholder désactive l'IA.
+      possible). Pour l'activer : coller la clé dans `var AI_KEY = '';`
+      (une seule ligne, tout en haut du script — repérable au commentaire
+      « LA SEULE LIGNE À MODIFIER »). Laisser vide (`''`) désactive l'IA.
   - Les **photos existantes ne sont jamais retraitées** ; la version pré-IA
   n'est **pas conservée** (le fichier traité remplace l'original — choix
   assumé pour garder le dépôt léger).
