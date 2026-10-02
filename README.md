@@ -218,13 +218,63 @@ Détails d'implémentation :
   fusion, export/import). Les produits existants sans `d` affichent
   « Non renseignée ».
 
+## Photos créées : fichiers dédiés + détourage IA automatique (Gemini)
+
+- **Les photos ne sont plus stockées dans `data/userdb.json`** (le fichier est
+  passé de ~1 Mo à ~230 Ko) : chaque photo prise dans l'app est commitée en
+  fichier **`img/<code>-u.webp`** (« u » = utilisateur ; les
+  `img/<code>.webp` du catalogue de base ne sont **jamais** écrasés — un
+  produit de base re-photographié garde son photo d'origine en repli).
+  `data/userdb.json` ne porte qu'un **marqueur de version**
+  (`"ph": { "<code>": "u<horodatage ms>" }`) qui construit l'URL affichée
+  (`img/<code>-u.webp?v=…`, cache cassé à chaque nouvelle version) et permet
+  d'arbitrer les conflits entre appareils (marqueur le plus récent gagne).
+- **Détourage IA automatique, en arrière-plan** (API Gemini, palier gratuit) :
+  à chaque **nouveau produit créé**, la photo est mise en file ; la création
+  n'est **jamais bloquée** — la fiche apparaît tout de suite avec la photo
+  originale et, quand le traitement se termine (~5-15 s), la photo de la carte
+  est **remplacée en direct** (produit isolé sur **fond blanc pur**, 360×360
+  WebP, poids inchangé) avec un toast « ✨ ».
+  - **Prompt de fidélité strict** : le produit doit rester identique (textes,
+    logos, codes-barres, couleurs, textures), entier, centré, sans ombre ni
+    reflet ni ajout. Le résultat de l'IA est utilisé **tel quel** (pas de
+    contrôle qualité automatique).
+  - **Robustesse** : erreurs réseau/quota (429, 5xx) → réessai différé avec
+    temporisation, jusqu'à 4 tentatives ; au-delà, la **photo d'origine est
+    conservée** (toast discret). Clé refusée (401/403) → la file est vidée,
+    photos d'origine conservées. La file **survit à la fermeture de l'app** et
+    repart au lancement ou au retour en ligne.
+  - **Clé Gemini partagée, intégrée au code** : tous les utilisateurs ayant le
+    **mot de passe** du catalogue en bénéficient automatiquement — **aucune
+    clé à saisir**. (La création d'un produit exige déjà le mot de passe, donc
+    l'IA est de fait réservée aux utilisateurs déverrouillés.)
+    - ⚠️ **Sécurité** : le site étant 100 % statique (aucun serveur), la clé
+      est **visible dans le code source** (`index.html`, variable `AI_KEY`).
+      Créez-la sur **aistudio.google.com**, **limitez-la à l'API « Generative
+      Language API »** et **restez au palier gratuit** (aucune facturation
+      possible). Pour la changer : remplacer la valeur de `AI_KEY` (une ligne).
+      Laisser le placeholder désactive l'IA.
+  - Les **photos existantes ne sont jamais retraitées** ; la version pré-IA
+  n'est **pas conservée** (le fichier traité remplace l'original — choix
+  assumé pour garder le dépôt léger).
+  - Transparence : les images renvoyées par Gemini portent un filigrane
+    **SynthID invisible** (aucun effet sur l'affichage).
+- **Hors-ligne / sans jeton** : la photo est conservée en local et part en
+  fichier automatiquement au retour de la connexion. Un **changement de code**
+  recopie le fichier photo en arrière-plan (`img/<ancien>-u.webp` →
+  `img/<nouveau>-u.webp`) ; entre-temps, l'ancien fichier est affiché.
+- Toutes les écritures GitHub (photos puis `data/userdb.json`) passent par une
+  **file sérielle** (l'API impose des commits séquentiels), avec sha rejoué en
+  cas de conflit et **garde anti-commit inchangé** (pas de commit vide si le
+  contenu est identique au dernier envoi).
+
 ## Où sont les données ?
 
 | Donnée | Emplacement |
 |---|---|
 | Catalogue de base | **inline dans `index.html`** (`window.CATALOG`, clés courtes `r,n,m,p,c`) — une seule requête, marche aussi en `file://` |
 | Photos catalogue | `img/<code>.webp` (carrés 360×360, centrés, fond blanc) |
-| **Base partagée** (ajouts/modifs/suppressions + photos + descriptions) | **`data/userdb.json` dans le dépôt GitHub**, mis à jour **en temps réel** par l'app via l'API GitHub (commit) |
+| **Base partagée** (ajouts/modifs/suppressions + marqueurs de version photo + descriptions) | **`data/userdb.json` dans le dépôt GitHub**, mis à jour **en temps réel** par l'app via l'API GitHub (commit) |
 | Repli local | localStorage (`catpro.ch.v1`, `catpro.gh.v1`, `catpro.rev.v1`, `catpro.ok`) si pas de jeton / hors-ligne, poussé au retour |
 
 Format de `data/userdb.json` :
@@ -232,15 +282,19 @@ Format de `data/userdb.json` :
 {
   "up":  { "<code>": { "r": "<code>", "n": "nom", "m": "marque", "p": "pays", "c": "conditionnement", "d": "description", "_t": 1790931154736 } },
   "del": { "<code>": 1790931154736 },
-  "ph":  { "<code>": "data:image/webp;base64,…" },
+  "ph":  { "<code>": "u1790931154736" },
   "_maj": "<horodatage ISO du dernier commit>"
 }
 ```
 `_t` = horodatage (ms) de la dernière écriture de la fiche ; la valeur d'une
-entrée `del` = horodatage (ms) de la suppression (tombstone). Les écritures
-antérieures à ce mécanisme (fiches sans `_t`, tombstones à `1`) sont traitées
-comme les plus anciennes possibles : toute écriture datée les remplace, et à
-égalité le local gagne (comportement historique).
+entrée `del` = horodatage (ms) de la suppression (tombstone) ; la valeur d'une
+entrée `ph` = **marqueur de version** de la photo (les octets de l'image sont
+dans le fichier `img/<code>-u.webp`, pas ici — d'où un `userdb.json` léger).
+Les écritures antérieures à ce mécanisme (fiches sans `_t`, tombstones à `1`,
+photos en data-URL) sont prises en charge : toute écriture datée les remplace,
+et à égalité le local gagne (comportement historique). Les anciennes photos en
+data-URL sont **migrées automatiquement** en fichiers `img/<code>-u.webp` au
+premier lancement avec jeton.
 
 ### Sync GitHub temps réel
 1. **Aucun réglage n'est nécessaire pour consulter** : quand le site est servi
@@ -326,7 +380,9 @@ index.html            FICHIER AUTO-SUFFISANT : CSS + JS + catalogue de base
 sw.js                 service worker (coquille + données en cache, images
                       cache-first bornées, index.html/userdb toujours frais)
 manifest.webmanifest  installation en application (standalone, icônes any + maskable)
-img/                  3 068 photos WebP carrées 360×360 (img/<code>.webp)
+img/                  3 068 photos WebP carrées 360×360 du catalogue de base
+                      (img/<code>.webp) + photos créées/détourées par l'app
+                      (img/<code>-u.webp, « u » = utilisateur)
 icons/                icônes PWA (192, 512, maskable 512, apple-touch)
 data/userdb.json      base partagée (commitée par l'app via l'API GitHub)
 README.md             ce fichier
