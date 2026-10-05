@@ -1,0 +1,29 @@
+RÉPARATION COMPLÈTE — 05/10/2026 (build 2026-10-05-barres-v2)
+
+Ce ZIP contient TOUT, en une seule fois :
+  index.html  → système photo restauré + correctif code-barres v2
+                (barres quantifiées en pixels physiques : scan douchette
+                fiable sur PC quelle que soit la mise à l'échelle Windows
+                ou le zoom ; re-rendu automatique des codes déjà affichés
+                quand le zoom/échelle change)
+  README.md   → documentation à jour
+  img/        → les 41 photos utilisateur *-u.webp (dont 88060924,
+                manquante lors de l'upload du 03/10)
+
+COMMENT PUBLIER (interface GitHub, sans git) :
+  1. Décompresser ce ZIP
+  2. github.com/alexthegreatwhite/catalogue → Add file → Upload files
+  3. Glisser : le dossier img EN ENTIER, index.html, README.md
+  4. Committer sur main
+
+⚠️  NE PAS ré-uploader l'ancien "correctif-code-barres.zip" : son
+    index.html écraserait celui-ci et casserait de nouveau les photos
+    (c'est ce qui s'est passé le 03/10 à 15h08).
+
+APRÈS L'UPLOAD :
+  - Ctrl+F5 sur le PC → un toast « Nouvelle version du catalogue
+    chargée. » doit apparaître
+  - Console (F12) → ligne « [Catalogue Pro] build 2026-10-05-barres-v2
+    — devicePixelRatio: … » : noter la valeur du DPR
+  - Les photos des produits doivent réapparaître ; tester la douchette
+    sur la fiche produit et sur les cartes
