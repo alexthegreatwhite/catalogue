@@ -1,0 +1,60 @@
+MISE À JOUR CATALOGUE — 113 PRODUITS PARIS STORE MANQUANTS
+Généré le 2026-10-10 à partir de https://paris-store.com/produits/ (3 206 produits listés)
+et du dépôt https://github.com/alexthegreatwhite/catalogue (état du commit 70e060c).
+
+CONTENU DE CE DOSSIER
+  data/userdb.json            → base partagée COMPLÈTE (1 767 fiches « up ») :
+                                vos 1 654 fiches existantes, inchangées,
+                                + 113 nouvelles fiches Paris Store (code 88 + référence site)
+  img/88XXXXXX-u.webp  ×113   → photos des nouveaux produits (360×360, fond blanc,
+                                centrées : exactement le cadre des photos du catalogue)
+  produits-ajoutes.csv        → tableau récapitulatif des 113 ajouts (code, nom, marque,
+                                pays, conditionnement, catégorie, nom chinois, URL site)
+  LISEZ-MOI-UPLOAD.txt        → ce fichier
+
+CE QUI A ÉTÉ FAIT
+  1. Extraction des 3 206 produits du site Paris Store (268 pages listing + fiches produit).
+  2. Comparaison avec VOTRE base : catalogue inline d'index.html (3 111 produits)
+     + data/userdb.json (ajouts/modifs/suppressions).
+  3. 113 produits présents sur le site et absents de votre repo → fiches complètes créées :
+     nom, marque, pays d'origine, conditionnement, description (nom chinois + libellé
+     anglais du site), catégorie/sous-catégorie (g/sg), photo.
+  4. Chaque fiche porte le code « 88 » + référence Paris Store (ex. site 015194 → 88015194),
+     comme tous les produits du catalogue de base.
+  5. Photos téléchargées depuis le site puis converties au format du repo :
+     WebP 360×360, sujet centré, fond blanc pur (img/<code>-u.webp + marqueur « ph »
+     dans userdb.json, mécanisme photo standard de l'application).
+
+COMMENT PUBLIER (interface GitHub, sans git — même méthode que votre LISEZ-MOI.txt)
+  1. github.com/alexthegreatwhite/catalogue
+  2. Glissez-déposez le DOSSIER img EN ENTIER (les 113 fichiers .webp) :
+     GitHub propose alors « upload », validez le commit.
+     (Ou, fichier par fichier : Add file → Upload files → déposer dans img/.)
+  3. Puis remplacez data/userdb.json :
+     ouvrez data/userdb.json dans GitHub → crayon (Edit) → effacez tout →
+     collez le contenu du data/userdb.json de ce dossier → Commit changes.
+     PLUS SIMPLE : Add file → Upload files → glissez le dossier « data »
+     (GitHub remplace le fichier existant).
+  4. Un seul commit groupé est préférable mais deux commits (img puis data) marchent aussi.
+
+  ⚠ AVANT D'UPLOADER : ce userdb.json part de l'état du dépôt du 2026-10-10 11:43 UTC.
+    Si vous avez créé/modifié des fiches DEPUIS avec l'application, relancez d'abord
+    l'app sur un appareil synchronisé pour pousser vos mods, puis régénérez ou
+    fusionnez : l'app fusionne « dernier écrivant gagne » par fiche (_t), vos fiches
+    récentes ne seront donc pas perdues même si ce fichier passe d'abord — mais
+    faites l'upload rapidement après génération pour minimiser l'écart.
+
+APRÈS L'UPLOAD
+  - Sur chaque appareil : recharger l'app (Ctrl+F5 / rouvrir) → badge sync « lecture GitHub »,
+    compteur +113, et « MAJ » = date du commit.
+  - Les 113 produits apparaissent classés alphabétiquement, avec photo, badge catégorie,
+    code-barres Code 128 (13 chiffres : 0000088XXXXXX), et recherche sur le nom chinois.
+  - Si une photo ne s'affiche pas tout de suite : le service worker la met en cache,
+    vider le cache ou attendre le prochain chargement sans cache.
+
+VÉRIFICATIONS INTÉGRÉES
+  - Aucun des 113 codes n'existait déjà (catalogue inline, userdb.up, tombstones del).
+  - Aucune fiche existante n'a été modifiée ni supprimée (seulement des AJOUTS dans « up » et « ph »).
+  - Les 3 produits « particuliers » du site (voir rapport-comparaison.md) n'ont PAS été doublonnés :
+    003805 (déjà présent sous 880038015), 002810 (SKU dupliqué côté site),
+    « 240128 240129 » (fiche site à double référence, les deux existent déjà).
