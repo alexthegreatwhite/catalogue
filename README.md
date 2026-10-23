@@ -11,7 +11,9 @@ application (PWA : `manifest.webmanifest` + service worker).
   automatiquement à sa place (insensible aux accents) ; l'écran est amené sur
   lui (ou sa position est indiquée).
 - **Barre de recherche en haut** (nom, marque, pays, code, conditionnement,
-  **description**), insensible aux accents, multi-mots : **tous** les mots
+  **description**), insensible aux accents **et aux ligatures** (« boeuf »
+  trouve « Bœuf » et inversement ; œ→oe, æ→ae, ß→ss, ﬁ→fi), multi-mots :
+  **tous** les mots
   saisis doivent se trouver dans le produit (ET strict, appliqué à chaque
   frappe) — un produit qui ne contient pas un des mots saisis n'est jamais
   affiché. La correspondance se fait **n'importe où dans le texte, y compris
@@ -31,11 +33,13 @@ application (PWA : `manifest.webmanifest` + service worker).
   même si un push/merge régressif ou un cache local réintroduit des données
   brutes — les appareils se resynchronisent d'eux-mêmes au lancement.
 - **Catégories & sous-catégories** : bandeau de chips sous la barre de
-  recherche (qui ne bouge pas) : **Boissons, Épicerie, Surgelé, Bazar** ; la
+  recherche (qui ne bouge pas) : **Boissons, Épicerie, Surgelé, Bazar** et
+  **📦 Non classés** ; la
   rangée de sous-catégories (boissons sucrées/alcoolisées ; snacks, thés/cafés/confitures,
   sauces/pâtes, conserves, riz, épices, nouilles / vermicelles / galettes de riz, huiles / vinaigres, produits secs, farines,
   sucres ; fritures, fruits/légumes, viandes, poissons, plats préparés,
-  desserts, accompagnement) n'apparaît que lorsqu'une catégorie est choisie. La recherche porte
+  desserts, accompagnement, bouchées / raviolis) n'apparaît que lorsqu'une
+  catégorie munie de sous-catégories est choisie. La recherche porte
   toujours sur TOUT le catalogue (quel que soit le rayon choisi) ; choisir une
   catégorie ou une sous-catégorie efface la recherche. Produits, catégories et
   sous-catégories affichés par ordre alphabétique. Chaque produit porte
@@ -43,6 +47,20 @@ application (PWA : `manifest.webmanifest` + service worker).
   `data/userdb.json` ; le formulaire ajout/modif propose deux listes
   dépendantes ; les cartes et la fiche affichent un badge coloré. Défilement
   des rangées : swipe au doigt, maintien+glisser à la souris, ou flèches ‹ ›.
+- **Classement obligatoire à la création** : un nouveau produit ne peut pas
+  être enregistré sans **catégorie** ; si le rayon choisi possède des
+  sous-catégories, la **sous-catégorie** est exigée elle aussi (Bazar et
+  Non classés n'en ont pas). Les astérisques rouges `*` du formulaire ne
+  s'affichent qu'en création — la **modification** d'une fiche existante reste
+  libre (scan douchette et corrections rapides ne sont jamais bloqués).
+- **Rayon « 📦 Non classés »** : regroupement automatique de toute fiche dont
+  `g` est vide **ou** dont la valeur est absente du plan de classement
+  (`isNonClasse()`), y compris les imports et les clés héritées. Ce rayon est
+  **virtuel** : il n'est proposé ni dans le formulaire ni dans le mode lot, on
+  ne peut donc pas « classer » volontairement un produit dedans — il sert
+  uniquement de file d'attente à ranger. Badge gris sur les cartes et la fiche.
+  Astuce : ouvrez Non classés puis **⋯ → 🗂️ Classer plusieurs produits →
+  « + Résultats »** pour vider la file en quelques gestes.
 - **Mode lot (classement en masse)** : menu **⋯ → 🗂️ Classer plusieurs
   produits** : une barre fixe apparaît en bas ; touchez les cartes pour les
   sélectionner (coche bleue), ou **« + Résultats »** pour prendre d'un coup
@@ -209,7 +227,24 @@ Détails d'implémentation :
 - en fiche, les **13 chiffres scannés** sont affichés sous le code-barres
   (saisie manuelle possible si le scan échoue) ; si l'écran est trop étroit,
   la cellule défile horizontalement au lieu de déformer les barres ;
-- chaque SVG porte `data-code` et `aria-label` avec la valeur scannée.
+- chaque SVG porte `data-code` et `aria-label` avec la valeur scannée ;
+- **clic sur un code = agrandissement plein écran** (`c128xl`) : le code passe
+  à **3-12 px physiques par module** (largeur 62 à 94 % de l'écran, plafonnée
+  à 760 px CSS ≈ 20 cm sur grand écran), zone calme portée à **12 modules**
+  (double de la norme GS1), fond noir autour pour couper les reflets
+  parasites. C'est la réponse au scan difficile sur PC : la taille physique
+  d'un code « carte » (≈ 1 px/module sur moniteur 24") tombe souvent hors de
+  la zone de confort de la douchette — trop près le code dépasse le champ,
+  trop loin le contraste d'écran s'effondre, d'où le va-et-vient. En vue
+  plein écran la distance de lecture confortable passe à **15-50 cm**.
+  Fermeture : Échap, clic ou balayage. Le rendu reste **quantifié en pixels
+  physiques entiers** (jamais étiré) et se re-quantifie au changement de
+  zoom/échelle Windows, comme les autres formats ;
+- l'encodage a été **revérifié par décodage logiciel** sur les cinq formes de
+  code (13 chiffres, 8 chiffres préfixés, natif 13, tout-zéros, alphanumérique
+  Code B) et sur cinq combinaisons écran/échelle (24" 100 %, Windows 125 %,
+  zoom 150 %, portable 14", smartphone DPR 3) : checksum modulo 103 valide et
+  valeur scannée restituée à l'identique dans tous les cas.
 
 ## Description du produit
 
@@ -240,6 +275,24 @@ Détails d'implémentation :
   (`"ph": { "<code>": "u<horodatage ms>" }`) qui construit l'URL affichée
   (`img/<code>-u.webp?v=…`, cache cassé à chaque nouvelle version) et permet
   d'arbitrer les conflits entre appareils (marqueur le plus récent gagne).
+- **Envoi des photos fiabilisé (build photos-v8)** : toutes les requêtes de
+  synchronisation ont un **timeout** (`fetchT`, AbortController — 20 à 90 s
+  selon l'opération) et les drapeaux d'envoi (`upBusy`, `ghBusy`) ont un
+  **chien de garde** (3 min) : une requête suspendue en mobile (bascule
+  réseau, veille) ne peut plus bloquer silencieusement l'envoi des photos
+  pour le reste de la session. L'envoi est **retenté au retour au premier
+  plan** (focus) en plus du retour en ligne et du démarrage ; un échec
+  affiche désormais un **toast « N photo(s) en attente d'envoi »** et le
+  menu **ℹ️ Source des données** compte les photos en attente.
+- **Repli GitHub des photos manquantes en local** : sur une copie locale
+  (ZIP) dont le dossier `img/` est figé à sa date de téléchargement, toute
+  photo absente (prise sur un autre appareil depuis) est **retentée
+  automatiquement depuis le dépôt** (`raw.githubusercontent.com`, hors CORS
+  — fonctionne même ouvert en `file://`) dès que l'appareil est connecté ;
+  un seul essai par image, puis espace réservé si GitHub échoue aussi (hors
+  ligne). Le fichier local reste toujours essayé **en premier** : rafraîchir
+  le ZIP redonne la priorité au disque. Les data-URL (photos de la session)
+  ne sont jamais concernées.
 - **Détourage IA automatique, en arrière-plan** (API Gemini, palier gratuit) :
   à chaque **nouveau produit créé**, la photo est mise en file ; la création
   n'est **jamais bloquée** — la fiche apparaît tout de suite avec la photo
@@ -321,10 +374,18 @@ premier lancement avec jeton.
 3. Chaque ajout / modification / suppression est **commité immédiatement** dans
    `data/userdb.json` ; les autres appareils l'adoptent au chargement.
    **Réconciliation** : un appareil sans modif locale adopte toujours le
-   distant ; s'il a des modifs locales, elles sont fusionnées avec le distant
+   distant. **Un appareil SANS JETON (lecture seule) adopte automatiquement
+   le dépôt à chaque connexion, même s'il a des différences locales : la base
+   GitHub ÉCRASE le local** (un appareil qui ne peut pas pousser ne doit pas
+   diverger — un toast signale le nombre de différences locales écrasées ;
+   exportez avant via « ⬇️ Exporter mes modifications » si besoin). Un
+   appareil **avec jeton** qui a des modifs locales non poussées (ex. travail
+   hors ligne) les conserve : elles sont fusionnées avec le distant
    **au plus récent** (« dernier écrivant gagne » : chaque écriture porte un
    horodatage — `_t` des fiches, valeur du tombstone pour les suppressions ;
-   à égalité, le local gagne) puis poussées. **Garde anti-retour** : si le
+   à égalité **datée**, le local gagne ; deux intentions **non datées**
+   tranchent pour le dépôt, afin qu'une vieille copie locale ne puisse plus
+   écraser le classement partagé) puis poussées. **Garde anti-retour** : si le
    dépôt a perdu des modifications déjà poussées, elles sont repoussées au lieu
    d'être écrasées. **Suppressions définitives** : une suppression locale (ou
    un changement de code, qui supprime l'ancien code) écrit un **tombstone
@@ -335,6 +396,19 @@ premier lancement avec jeton.
    fiche supprimée ou renommée ailleurs. Le sha du fichier est
    lu sur la branche d'écriture et un conflit « does not match » déclenche un
    retry automatique.
+4. **Copie locale (PC hors ligne) : mise à jour automatique par bascule**.
+   Le PC lit l'app en local (ZIP) et n'est relié à internet que pour les
+   mises à jour. Au lancement de la copie locale, **si internet est là** :
+   les données viennent d'abord être rafraîchies (adoption du dépôt, repli
+   hors ligne à jour), puis si le dépôt porte un **build différent** du
+   fichier local, la page **bascule toute seule sur le site en ligne**
+   (toast « Mise à jour disponible … ») — toujours à jour sans jamais
+   manipuler de fichier (un navigateur ne peut pas réécrire le disque :
+   la bascule EST la mise à jour automatique). Build identique → on reste
+   en local (photos retentées depuis GitHub si absentes du ZIP). **Hors
+   ligne** → copie locale en silence, avec les données de la dernière
+   connexion. Pour remettre le fichier local à niveau (repli hors ligne),
+   re-télécharger le ZIP de temps en temps.
    Badges : `sync : GitHub` / `sync : lecture GitHub` / `sync : en attente` /
    `sync : source introuvable` / `sync : locale`. Menu **⋯ → ℹ️ Source des
    données / diagnostic** : dépôt résolu, dernière URL lue, résultat, nombre de

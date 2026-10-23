@@ -1,29 +1,72 @@
-RÉPARATION COMPLÈTE — 05/10/2026 (build 2026-10-05-barres-v2)
+MISE À JOUR AUTOMATIQUE DE LA COPIE LOCALE — build 2026-10-22-maj-auto-v9
+(basé sur votre repo en ligne : adopt-v6. Ce fichier CUMULE les patchs non
+ encore uploadés : photos-v7 + photos-v8 + celui-ci. UN SEUL upload remplace
+ tout.)
 
-Ce ZIP contient TOUT, en une seule fois :
-  index.html  → système photo restauré + correctif code-barres v2
-                (barres quantifiées en pixels physiques : scan douchette
-                fiable sur PC quelle que soit la mise à l'échelle Windows
-                ou le zoom ; re-rendu automatique des codes déjà affichés
-                quand le zoom/échelle change)
-  README.md   → documentation à jour
-  img/        → les 41 photos utilisateur *-u.webp (dont 88060924,
-                manquante lors de l'upload du 03/10)
+VOTRE DEMANDE
+  « Le PC lit le site en local, sans internet ; je le relie juste pour les
+  mises à jour. Je veux que dès qu'il est connecté, il se mette à jour
+  automatiquement quand je lance la page. »
 
-COMMENT PUBLIER (interface GitHub, sans git) :
-  1. Décompresser ce ZIP
-  2. github.com/alexthegreatwhite/catalogue → Add file → Upload files
-  3. Glisser : le dossier img EN ENTIER, index.html, README.md
-  4. Committer sur main
+CE QUE FAIT LA V9 (fonction maybeFollowSite, au lancement de la page)
+  Copie locale ouverte AVEC internet :
+    1. les DONNÉES sont d'abord rafraîchies comme d'habitude (adoption
+       automatique de la base GitHub — votre repli hors ligne est à jour) ;
+    2. l'app compare son build au build du dépôt (sonde de 8 s sur
+       raw.githubusercontent) ;
+    3. build différent (une maj existe) → toast « Mise à jour disponible
+       (…) : bascule sur le site en ligne… » puis BASCULE AUTOMATIQUE sur
+       https://alexthegreatwhite.github.io/catalogue/ — vous vous retrouvez
+       sur la dernière version sans aucune manipulation ;
+    4. build identique → vous restez en local (photos manquantes rechargées
+       depuis GitHub tant qu'internet est là — patch v7).
+  Copie locale ouverte SANS internet :
+    → démarrage local normal, en silence, avec les données de la dernière
+      connexion. Rien n'est tenté (sonde ignorée si navigator.onLine=false).
+  Sur le site Pages (smartphone, ou PC après bascule) :
+    → la fonction ne fait jamais rien (détection du hostname — aucune
+      boucle de redirection possible).
 
-⚠️  NE PAS ré-uploader l'ancien "correctif-code-barres.zip" : son
-    index.html écraserait celui-ci et casserait de nouveau les photos
-    (c'est ce qui s'est passé le 03/10 à 15h08).
+  Pourquoi une bascule et pas une réécriture du fichier ? Un navigateur ne
+  peut PAS modifier les fichiers du disque (sandbox de sécurité) — c'est
+  impossible pour n'importe quel site web. La bascule vers le site en ligne
+  est LA mise à jour automatique : connecté = toujours la dernière version.
 
-APRÈS L'UPLOAD :
-  - Ctrl+F5 sur le PC → un toast « Nouvelle version du catalogue
-    chargée. » doit apparaître
-  - Console (F12) → ligne « [Catalogue Pro] build 2026-10-05-barres-v2
-    — devicePixelRatio: … » : noter la valeur du DPR
-  - Les photos des produits doivent réapparaître ; tester la douchette
-    sur la fiche produit et sur les cartes
+À FAIRE UNE FOIS (la dernière manipulation manuelle)
+  1. PUBLIER : repo → Add file → Upload files → glisser index.html ET
+     README.md de CE dossier → commit sur main.
+  2. PC : remplacer l'index.html du dossier local par celui-ci (pour que la
+     copie HORS LIGNE bénéficie aussi de tout : recherche œ, codes-barres
+     plein écran, adoption auto, photos fiabilisées, bascule auto).
+     — Si vous ne le faites pas, ce n'est pas bloquant : au prochain
+       lancement connecté, la vieille copie locale détectera la v9 sur le
+       dépôt et basculera sur le site automatiquement.
+  3. Vérifier : lancer la copie locale, PC connecté → toast « Mise à jour
+     disponible » → le site s'ouvre. Console (F12) sur le site :
+     « [Catalogue Pro] build 2026-10-22-maj-auto-v9 ».
+
+ENSUITE, AU QUOTIDIEN
+  - PC connecté + lancement → vous êtes toujours sur la dernière version
+    (site) ; les données locales sont rafraîchies au passage ;
+  - PC déconnecté + lancement → copie locale avec les données de la
+    dernière connexion ;
+  - Pour que le repli HORS LIGNE ait aussi le dernier CODE et les dernières
+    PHOTOS : re-télécharger le ZIP de temps en temps (Code → Download ZIP)
+    — optionnel, seulement pour améliorer le confort hors ligne.
+
+RAPPEL PHOTOS BLOQUÉES (patch v8 inclus ici)
+  Après publication, sur le SMARTPHONE : fermer COMPLÈTEMENT l'app et la
+  rouvrir avec internet → les photos en attente depuis le 20/10 s'envoient
+  (commits « Photo: … » sur le dépôt) → elles s'affichent ensuite sur le
+  PC/site. Suivi : menu ⋯ → ℹ️ Source des données → « Photos en attente
+  d'envoi : 0 ».
+
+TESTS AUTOMATIQUES (node, fichier final)
+  - 11 nouveaux tests v9 : bascule sur build différent (URL exacte + toast
+    + sonde anti-cache), reste en local si même build / hors ligne / sonde
+    en erreur / dépôt non configuré / navigator.onLine=false, aucune sonde
+    sur Pages (pas de boucle), 3 points de démarrage accrochés, build v9.
+  - Régression complète des 5 suites précédentes (repli photos v7 : 10,
+    adoption auto v6 : 9, recherche œ + codes-barres v5 : 26, classement
+    obligatoire v4 : 24, envoi photos fiabilisé v8 : 12) : TOUS VERTS.
+  - Syntaxe des 3 blocs <script> : OK.
