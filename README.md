@@ -275,6 +275,26 @@ Détails d'implémentation :
   (`"ph": { "<code>": "u<horodatage ms>" }`) qui construit l'URL affichée
   (`img/<code>-u.webp?v=…`, cache cassé à chaque nouvelle version) et permet
   d'arbitrer les conflits entre appareils (marqueur le plus récent gagne).
+- **Création / modification : la photo ne peut plus disparaître (build
+  photo-fix-v10)** — trois causes corrigées :
+  1. **« ✕ Retirer » est désormais différé** : cliquer Retirer ne supprime
+     plus la photo sur-le-champ, la suppression n'est appliquée qu'au clic
+     sur **Enregistrer**. Avant, un simple clic sur Retirer suivi de
+     « Annuler » laissait la fiche sans photo (et le prochain push
+     propagait la perte au dépôt). Prendre une nouvelle photo après
+     Retirer annule bien sûr la suppression.
+  2. **Enregistrer attend la fin du traitement de l'image** : la
+     compression WebP (galerie) est asynchrone ; pendant ce temps le
+     formulaire indique « Photo en cours de traitement : patientez 1 à 2 s,
+     puis réenregistrez » au lieu de sauver une fiche sans la photo qu'on
+     vient de choisir. `fr.onerror` et `img.onerror` libèrent aussi le
+     verrou (aucun blocage possible).
+  3. **Sauvegardes en rafale** : l'envoi des photos en cours était
+     réutilisé tel quel par les produits suivants, qui n'étaient donc
+     jamais envoyés (et rien ne les reprogrammait hors focus/démarrage).
+     Chaque appel enchaîne maintenant une **passe complémentaire** avec un
+     instantané frais, plus un **retry à 15 s** tant qu'il reste des photos
+     en attente.
 - **Envoi des photos fiabilisé (build photos-v8)** : toutes les requêtes de
   synchronisation ont un **timeout** (`fetchT`, AbortController — 20 à 90 s
   selon l'opération) et les drapeaux d'envoi (`upBusy`, `ghBusy`) ont un
