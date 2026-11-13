@@ -4,9 +4,10 @@ Application de catalogue produits **100 % statique** : aucun serveur, aucun
 PHP, aucune base externe. Tout tourne dans le navigateur. Installable en
 application (PWA : `manifest.webmanifest` + service worker).
 
-- **3 111 produits** et **3 068 photos** embarqués dans le catalogue de base ;
-  le nombre affiché tient compte en temps réel de la base partagée
-  (suppressions et ajouts synchronisés via GitHub).
+- **4 006 produits** et **3 393 photos** dans le dépôt (dont **325** photos
+  utilisateur `*-u.webp`) ; le nombre affiché (actuellement **4 005** produits
+  actifs) tient compte en temps réel de la base partagée (suppressions,
+  ajouts et surcharges synchronisés via GitHub).
 - **Classement TOUJOURS alphabétique** : un produit créé ou modifié se range
   automatiquement à sa place (insensible aux accents) ; l'écran est amené sur
   lui (ou sa position est indiquée).
@@ -178,7 +179,7 @@ application (PWA : `manifest.webmanifest` + service worker).
   modifier / supprimer (valeur communiquée séparément ; seule une empreinte
   salée figure dans `index.html`, jamais en clair dans ce README).
 - **Ultra-léger** : zéro dépendance, zéro framework ; un seul fichier HTML
-  auto-suffisant (~333 Ko, gzip ~70 Ko) qui marche aussi en `file://` et dans
+  auto-suffisant (~894 Ko non compressé) qui marche aussi en `file://` et dans
   les aperçus (CSS/JS inline, aucune ressource externe).
 - **Rapide** : données mises en cache, images lazy-load + service worker,
   rendu par lots de 60.
@@ -267,7 +268,7 @@ Détails d'implémentation :
 ## Photos créées : fichiers dédiés + détourage IA automatique (Gemini)
 
 - **Les photos ne sont plus stockées dans `data/userdb.json`** (le fichier est
-  passé de ~1 Mo à ~230 Ko) : chaque photo prise dans l'app est commitée en
+  maintenu léger, ~624 Ko pour 2 734 fiches) : chaque photo prise dans l'app est commitée en
   fichier **`img/<code>-u.webp`** (« u » = utilisateur ; les
   `img/<code>.webp` du catalogue de base ne sont **jamais** écrasés — un
   produit de base re-photographié garde son photo d'origine en repli).
@@ -357,7 +358,7 @@ Détails d'implémentation :
 
 | Donnée | Emplacement |
 |---|---|
-| Catalogue de base | **inline dans `index.html`** (`window.CATALOG`, clés courtes `r,n,m,p,c`) — une seule requête, marche aussi en `file://` |
+| Catalogue de base | **inline dans `index.html`** (`window.CATALOG`, clés courtes `r,n,m,p,c,d,e,g,sg`) — une seule requête, marche aussi en `file://` |
 | Photos catalogue | `img/<code>.webp` (carrés 360×360, centrés, fond blanc) |
 | **Base partagée** (ajouts/modifs/suppressions + marqueurs de version photo + descriptions) | **`data/userdb.json` dans le dépôt GitHub**, mis à jour **en temps réel** par l'app via l'API GitHub (commit) |
 | Repli local | localStorage (`catpro.ch.v1`, `catpro.gh.v1`, `catpro.rev.v1`, `catpro.ok`) si pas de jeton / hors-ligne, poussé au retour |
@@ -365,7 +366,7 @@ Détails d'implémentation :
 Format de `data/userdb.json` :
 ```json
 {
-  "up":  { "<code>": { "r": "<code>", "n": "nom", "m": "marque", "p": "pays", "c": "conditionnement", "d": "description", "_t": 1790931154736 } },
+  "up":  { "<code>": { "r": "<code>", "n": "nom", "m": "marque", "p": "pays", "c": "conditionnement", "d": "description", "e": "EAN", "g": "categorie", "sg": "sous-categorie", "_t": 1790931154736 } },
   "del": { "<code>": 1790931154736 },
   "ph":  { "<code>": "u1790931154736" },
   "_maj": "<horodatage ISO du dernier commit>"
@@ -482,13 +483,13 @@ verrou de confort, pas une sécurité serveur (impossible en statique).
 
 ```
 index.html            FICHIER AUTO-SUFFISANT : CSS + JS + catalogue de base
-                      (3 111 produits) inline → une seule requête
-sw.js                 service worker (coquille + données en cache, images
-                      cache-first bornées, index.html/userdb toujours frais)
+                      (4 006 produits) inline → une seule requête
+sw.js                 service worker (coquille + données en cache,
+                      index.html/userdb toujours frais)
 manifest.webmanifest  installation en application (standalone, icônes any + maskable)
-img/                  3 068 photos WebP carrées 360×360 du catalogue de base
-                      (img/<code>.webp) + photos créées/détourées par l'app
-                      (img/<code>-u.webp, « u » = utilisateur)
+img/                  3 393 photos WebP carrées 360×360 (img/<code>.webp
+                      du catalogue de base + photos créées/détourées
+                      img/<code>-u.webp, « u » = utilisateur)
 icons/                icônes PWA (192, 512, maskable 512, apple-touch)
 data/userdb.json      base partagée (commitée par l'app via l'API GitHub)
 README.md             ce fichier
