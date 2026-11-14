@@ -1351,13 +1351,9 @@ function mergeRemote(remote, local, refs) {
     }
     var lT = hasUp ? upT(lUp) : delT(lDel);
     var rT = hasRUp ? upT(rUp) : (hasRDel ? delT(rDel) : -1);
-    if (lT > rT || (lT === rT && lT > 0)) {      /* le LOCAL gagne : écriture strictement
-                                                    plus récente, ou égalité DATÉE. Deux
-                                                    intentions NON datées (antérieures aux
-                                                    _t) se tranchent pour le DISTANT : une
-                                                    vieille copie locale ne peut plus
-                                                    écraser le classement du dépôt
-                                                    (correctif fusion du 05/10/2026). */
+    if (lT > rT) {                               /* le LOCAL gagne uniquement si strictement
+                                                    plus récent : une égalité de _t (cache ancien)
+                                                    laisse gagner le DISTANT (MAJ serveur). */
       if (hasDel && !hasUp) {                    /* suppression locale */
         out.del[k] = hasRDel ? pickDel(lDel, rDel) : lDel;
         delete out.up[k]; delete out.ph[k];
