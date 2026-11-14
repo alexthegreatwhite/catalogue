@@ -980,6 +980,23 @@ function healCH() {
   if (n) { saveLocal(); dirty = true; if (ghCanWrite()) schedulePush(); }
   return n;
 }
+function extractCondNb(c) {
+  if (!c) return 0;
+  var s = String(c).trim(), m, last = 0;
+  var rxX = /(?:^|[^A-Za-z0-9]|\d|K?G|M?L|CL|GR)[xX\u00D7*]\s*(\d{1,4})(?!\s*(?:G|GR|KG|K|MG|L|CL|ML|CM|MM|M)\b)(?=$|[^0-9])/gi;
+  while ((m = rxX.exec(s)) !== null) {
+    var n = parseInt(m[1], 10);
+    if (n > 0) last = n;
+  }
+  if (last > 1) return last;
+  var rxP = /(?:^|[^A-Za-z0-9])(\d{1,4})\s*(?:UN\/CT|UN\/C|PS\/CT|\/CT|PCS\b|P\b)/i;
+  m = rxP.exec(s);
+  if (m) {
+    var np = parseInt(m[1], 10);
+    if (np > 0) return np;
+  }
+  return last;
+}
 function fmtPrix(pr, pu) {
   if (pr == null) return '';
   var s = String(pr).trim().replace(',', '.');
@@ -1011,7 +1028,8 @@ function buildAll() {
       cat: x.g == null ? ((bm && bm.g) || '') : x.g,
       sub: x.sg == null ? ((bm && bm.sg) || '') : x.sg,
       img: imgOf(x.r),
-      base: !!bm
+      base: !!bm,
+      mc: x.mc ? 1 : 0
     };
   }
   var seen = {}, i;
@@ -2030,11 +2048,52 @@ function saveForm() {
   }
   var eanEl = $('#i-ean');
   var eanVal = eanEl ? eanEl.value.trim() : (editing && editing.ean ? editing.ean : '');
+  var condVal = $('#i-cond').value.trim();
+  var oldCond = editing ? (editing.cond || '') : '';
   var prEl = $('#i-prix'), pkEl = $('#i-pkg');
   var prVal = prEl ? prEl.value.trim().replace(',', '.') : (editing && editing.pr ? editing.pr : '');
   var pkVal = pkEl ? pkEl.value.trim() : (editing && editing.pk ? editing.pk : '');
-  var puVal = (editing && prVal === (editing.pr || '')) ? (editing.pu || '') : '';
-  CH.up[ref] = { r: ref, n: cap1(nom), m: cap1($('#i-marque').value), p: cap1($('#i-pays').value), c: $('#i-cond').value.trim(), d: cap1($('#i-desc').value), e: eanVal, pr: prVal, pk: pkVal, pu: puVal, g: gSel, sg: sgSel, _t: Date.now() };
+  var oldPr = editing ? (editing.pr || '') : '';
+  var oldPk = editing ? (editing.pk || '') : '';
+  var priceUntouched = !!(editing && prVal === oldPr);
+  var puVal = priceUntouched ? (editing.pu || '') : '';
+  var mcVal = (editing && editing.mc && priceUntouched) ? 1 : 0;
+  if (editing && priceUntouched && condVal !== oldCond) {
+    var nbNew = extractCondNb(condVal), nbOld = extractCondNb(oldCond);
+    var prNum = Number(prVal);
+    var scalePk = function (factor) {
+      if (!pkVal || pkVal !== oldPk) return;
+      var mPk = /^\s*([\d.,]+)\s*(€\s*\/\s*(?:kg|l))\s*$/i.exec(pkVal);
+      if (mPk) {
+        var vPk = Number(mPk[1].replace(',', '.'));
+        if (isFinite(vPk) && vPk > 0) pkVal = (vPk * factor).toFixed(2) + ' ' + mPk[2];
+      }
+    };
+    if (!editing.mc && editing.pu === '1' && nbNew > 1) {
+      mcVal = 1;
+      if (prVal !== '' && isFinite(prNum) && prNum > 0) {
+        prVal = (prNum * nbNew * 0.95).toFixed(2);
+        puVal = '0';
+        scalePk(0.95);
+      }
+    } else if (editing.mc && nbOld > 1 && prVal !== '' && isFinite(prNum) && prNum > 0) {
+      if (nbNew > 1) {
+        prVal = (prNum / nbOld * nbNew).toFixed(2);
+        puVal = '0';
+      } else {
+        prVal = (prNum / (nbOld * 0.95)).toFixed(2);
+        puVal = '1';
+        mcVal = 0;
+        scalePk(1 / 0.95);
+      }
+    } else if ((!prVal || !isFinite(prNum) || prNum <= 0) && nbNew > 1) {
+      mcVal = 1;
+    } else if (editing.mc && nbNew <= 1) {
+      mcVal = 0;
+    }
+  }
+  CH.up[ref] = { r: ref, n: cap1(nom), m: cap1($('#i-marque').value), p: cap1($('#i-pays').value), c: condVal, d: cap1($('#i-desc').value), e: eanVal, pr: prVal, pk: pkVal, pu: puVal, g: gSel, sg: sgSel, _t: Date.now() };
+  if (mcVal) CH.up[ref].mc = 1;
   delete CH.del[ref];   /* (re)créer retire le tombstone de suppression : sans cela,
                            un produit recréé avec un code déjà supprimé serait
                            enregistré/envoyé mais masqué partout (buildAll saute
@@ -2292,6 +2351,7 @@ function applyBulk() {
     var p = findProd(refs[i]);
     if (!p) continue;
     CH.up[refs[i]] = { r: refs[i], n: p.nom, m: p.marque, p: p.pays, c: p.cond, d: p.desc || '', e: p.ean || '', pr: p.pr || '', pk: p.pk || '', pu: p.pu || '', g: g, sg: sg, _t: Date.now() };
+    if (p.mc) CH.up[refs[i]].mc = 1;
     delete CH.del[refs[i]];
   }
   commitCH(true);
