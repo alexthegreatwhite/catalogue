@@ -1220,15 +1220,19 @@ function pushRemote(attempt) {
       }
       return r.json().then(function (res) {
         ghBusy = false;
+        autoSelfPushUntil = Date.now() + 25000;
+        if (res && res.commit && res.commit.sha) autoCommitSha = res.commit.sha;
         if (res && res.content && res.content.sha) setSha(res.content.sha);
         dirty = false; setRev(CH); updateSyncBadge();
         try { localStorage.setItem(K_PAYH, payH); } catch (e) {}
         if (pushRetryTimer) { clearInterval(pushRetryTimer); pushRetryTimer = null; }
         ghFileDate().then(function (d) { if (d) { setMaj(d); } });
+        flushPendingReload();
         return true;
       }).catch(function () {
-        ghBusy = false; dirty = false; setRev(CH); updateSyncBadge();
+        ghBusy = false; autoSelfPushUntil = Date.now() + 25000; dirty = false; setRev(CH); updateSyncBadge();
         try { localStorage.setItem(K_PAYH, payH); } catch (e) {}
+        flushPendingReload();
         return true;
       });
     })
@@ -1494,7 +1498,11 @@ function maybeFollowSite() {
     .catch(function () { /* hors ligne ou GitHub injoignable : rester sur la copie locale */ });
 }
 var autoHtmlSig = null, autoCheckAt = 0, autoBusy = false;
-var autoLocalHash = null, autoSeenSigs = Object.create(null);
+var autoLocalHash = null, autoBaseFullHash = '', autoSeenSigs = Object.create(null);
+var autoUdbEtag = '', autoCommitSha = '', autoCommitCheckAt = 0, autoApiPauseUntil = 0;
+var autoSelfPushUntil = 0, autoFastHtmlUntil = 0;
+var pendingReload = false, pendingReloadMsg = '', pendingReloadKey = '', autoReloading = false;
+var K_RLD = 'catpro.rld.v1';
 function hashStr2(str, s1, s2) {
   var h1 = (s1 === undefined ? 0x811c9dc5 : s1) >>> 0;
   var h2 = (s2 === undefined ? 0x9e3779b1 : s2) >>> 0;
@@ -1506,8 +1514,14 @@ function hashStr2(str, s1, s2) {
   }
   return [h1, h2];
 }
+function hashFullText(str) {
+  if (!str) return '';
+  var s = str.replace(/\r/g, '');
+  var pair = hashStr2(s);
+  return (pair[0] >>> 0).toString(16) + ':' + (pair[1] >>> 0).toString(16) + ':' + s.length;
+}
 function computeScriptsHash(getPart) {
-  var ids = ['cat-data', 'cat-meta', 'cat-main'];
+  var ids = ['style', 'cat-data', 'cat-meta', 'cat-main'];
   var h1 = 0x811c9dc5, h2 = 0x9e3779b1, totalLen = 0;
   for (var i = 0; i < ids.length; i++) {
     var body = getPart(ids[i]);
@@ -1523,7 +1537,7 @@ function computeScriptsHash(getPart) {
 function getLocalHtmlHash() {
   if (autoLocalHash === null) {
     autoLocalHash = computeScriptsHash(function (id) {
-      var el = document.getElementById(id);
+      var el = id === 'style' ? document.querySelector('style') : document.getElementById(id);
       return el ? (el.textContent || '') : null;
     });
   }
@@ -1531,13 +1545,14 @@ function getLocalHtmlHash() {
 }
 function extractHtmlHash(html) {
   if (!html) return '';
-  var closeTag = '<' + '/script>';
+  var closeScript = '<' + '/script>', closeStyle = '<' + '/style>';
   return computeScriptsHash(function (id) {
-    var openTag = '<script id="' + id + '">';
+    var openTag = id === 'style' ? '<style>' : ('<script id="' + id + '">');
+    var endTag = id === 'style' ? closeStyle : closeScript;
     var start = html.indexOf(openTag);
     if (start < 0) return null;
     start += openTag.length;
-    var end = html.indexOf(closeTag, start);
+    var end = html.indexOf(endTag, start);
     if (end < 0) return null;
     return html.slice(start, end);
   });
@@ -1548,29 +1563,134 @@ function rememberSeenSig(sig) {
   autoSeenSigs[sig] = 1;
   autoHtmlSig = sig;
 }
+function isEditProtected() {
+  var formOpen = !!($('#form') && !$('#form').hidden);
+  var camOpen = !!($('#cam') && !$('#cam').hidden);
+  return !!(formOpen || camOpen || editing || camStream || bulkMode || dirty || ghBusy || upBusy || hasPendingPhotos() || loadPCopy().length > 0);
+}
 function canAutoRefresh() {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
   if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return false;
-  if (overlayOpen() || bulkMode || editing || camStream || dirty || ghBusy || upBusy) return false;
-  if (hasPendingPhotos() || loadPCopy().length > 0) return false;
+  if (isEditProtected()) return false;
   return true;
 }
-function initAutoHtmlSig() {
-  getLocalHtmlHash();
-  if (!/\.github\.io$/.test(location.hostname)) return;
-  fetchT('index.html?cb=' + Date.now(), { method: 'HEAD', cache: 'no-store' }, 8000)
+function alreadyReloadedKey(k) {
+  if (!k) return false;
+  try { return sessionStorage.getItem(K_RLD) === k; } catch (e) { return false; }
+}
+function triggerAutoReload(msg, reloadKey) {
+  if (autoReloading) return;
+  if (reloadKey && alreadyReloadedKey(reloadKey)) return;
+  autoReloading = true;
+  pendingReload = false;
+  if (reloadKey) { try { sessionStorage.setItem(K_RLD, reloadKey); } catch (e) {} }
+  toast(msg || 'Nouvelle mise à jour détectée : actualisation…', 'ok');
+  var cleanP = Promise.resolve();
+  try {
+    var tasks = [];
+    if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) {
+      tasks.push(navigator.serviceWorker.getRegistration().then(function (reg) { if (reg) return reg.update(); }).catch(function () {}));
+    }
+    if (window.caches && caches.keys) {
+      tasks.push(caches.keys().then(function (ks) {
+        return Promise.all(ks.map(function (k) {
+          return caches.open(k).then(function (c) {
+            return Promise.all([c.delete('./'), c.delete('index.html'), c.delete(location.pathname)]);
+          });
+        }));
+      }).catch(function () {}));
+    }
+    if (tasks.length) {
+      cleanP = Promise.race([Promise.all(tasks), new Promise(function (res) { setTimeout(res, 450); })]);
+    }
+  } catch (e) {}
+  cleanP.then(function () {
+    setTimeout(function () { try { location.reload(); } catch (e) { location.href = location.href; } }, 250);
+  });
+}
+function requestAutoReload(msg, reloadKey) {
+  if (reloadKey && alreadyReloadedKey(reloadKey)) return false;
+  if (!canAutoRefresh()) {
+    if (typeof navigator === 'undefined' || navigator.onLine !== false) {
+      pendingReload = true;
+      pendingReloadMsg = msg || 'Nouvelle mise à jour détectée : actualisation…';
+      pendingReloadKey = reloadKey || '';
+    }
+    return false;
+  }
+  triggerAutoReload(msg, reloadKey);
+  return true;
+}
+function flushPendingReload() {
+  if (pendingReload && !autoReloading && canAutoRefresh()) {
+    triggerAutoReload(pendingReloadMsg, pendingReloadKey);
+  }
+}
+function fetchUdbHeadSig() {
+  if (!ghCanRead()) return Promise.resolve('');
+  var g = ghEffective();
+  var url = 'https://raw.githubusercontent.com/' + g.owner + '/' + g.repo + '/' + (g.branch || 'main') + '/data/userdb.json?cb=' + Date.now();
+  return fetchT(url, { method: 'HEAD', cache: 'no-store' }, 8000)
     .then(function (r) {
-      if (!r || !r.ok) return;
-      var sig = r.headers.get('etag') || r.headers.get('last-modified') || r.headers.get('content-length') || '';
-      if (sig) rememberSeenSig(sig);
+      if (!r || !r.ok) return '';
+      return r.headers.get('etag') || r.headers.get('content-length') || '';
     })
-    .catch(function () {});
+    .catch(function () { return ''; });
+}
+function fetchLatestCommitSha() {
+  if (!ghCanRead()) return Promise.resolve('');
+  if (Date.now() < autoApiPauseUntil) return Promise.resolve('');
+  var g = ghEffective();
+  var url = 'https://api.github.com/repos/' + g.owner + '/' + g.repo + '/commits/' + encodeURIComponent(g.branch || 'main');
+  var h = { 'Accept': 'application/vnd.github.sha' };
+  if (g.token) h['Authorization'] = 'Bearer ' + g.token;
+  return fetchT(url, { headers: h, cache: 'no-store' }, 8000)
+    .then(function (r) {
+      if (!r) return '';
+      var rem = parseInt(r.headers.get('x-ratelimit-remaining') || '', 10);
+      var rst = parseInt(r.headers.get('x-ratelimit-reset') || '', 10);
+      if (isFinite(rem) && rem <= 6) {
+        autoApiPauseUntil = isFinite(rst) ? Math.max(Date.now() + 60000, rst * 1000 + 5000) : (Date.now() + 600000);
+      }
+      if (!r.ok) return '';
+      return r.text().then(function (t) { return (t || '').trim(); });
+    })
+    .catch(function () { return ''; });
+}
+function initAutoHtmlSig() {
+  var localHash = getLocalHtmlHash();
+  if (/\.github\.io$/.test(location.hostname)) {
+    fetchT('index.html?cb=' + Date.now(), { method: 'GET', cache: 'no-store' }, 12000)
+      .then(function (r) {
+        if (!r || !r.ok) return;
+        var sig = r.headers.get('etag') || r.headers.get('last-modified') || r.headers.get('content-length') || '';
+        if (sig) rememberSeenSig(sig);
+        return r.text().then(function (html) {
+          if (!html) return;
+          autoBaseFullHash = hashFullText(html);
+          var remoteStatic = extractHtmlHash(html);
+          if (localHash && remoteStatic && remoteStatic !== localHash) {
+            requestAutoReload('Nouvelle mise à jour détectée : actualisation…', 'html:' + autoBaseFullHash);
+          }
+        });
+      })
+      .catch(function () {});
+  }
+  if (ghCanRead()) {
+    fetchUdbHeadSig().then(function (sig) { if (sig) autoUdbEtag = sig; });
+    autoCommitCheckAt = Date.now();
+    fetchLatestCommitSha().then(function (sha) { if (sha) autoCommitSha = sha; });
+  }
 }
 function checkAutoUpdate(force) {
+  if (autoReloading) return;
+  if (pendingReload && canAutoRefresh()) { flushPendingReload(); return; }
   if (autoBusy) return;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
   var now = Date.now();
-  if (!force && now - autoCheckAt < 20000) return;
-  if (!canAutoRefresh()) return;
+  var minGap = now < autoFastHtmlUntil ? 4000 : 8000;
+  if (!force && now - autoCheckAt < minGap) return;
   autoCheckAt = now;
   autoBusy = true;
   var localHash = getLocalHtmlHash();
@@ -1579,17 +1699,17 @@ function checkAutoUpdate(force) {
         .then(function (r) {
           if (!r || !r.ok) return false;
           var sig = r.headers.get('etag') || r.headers.get('last-modified') || r.headers.get('content-length') || '';
-          if (!sig || sig === autoHtmlSig || autoSeenSigs[sig]) return false;
+          if (sig && (sig === autoHtmlSig || autoSeenSigs[sig])) return false;
           return fetchT('index.html?cb=' + Date.now(), { method: 'GET', cache: 'no-store' }, 15000)
             .then(function (r2) { return (r2 && r2.ok) ? r2.text() : ''; })
             .then(function (html) {
-              var remoteHash = extractHtmlHash(html);
-              if (!remoteHash) return false;
-              rememberSeenSig(sig);
-              if (remoteHash !== localHash && canAutoRefresh()) {
-                toast('Nouvelle mise à jour détectée : actualisation…', 'ok');
-                setTimeout(function () { try { location.reload(); } catch (e) { location.href = location.href; } }, 600);
-                return true;
+              if (!html) return false;
+              var remoteFull = hashFullText(html);
+              var remoteStatic = extractHtmlHash(html);
+              if (sig) rememberSeenSig(sig);
+              if ((autoBaseFullHash && remoteFull && remoteFull !== autoBaseFullHash) || (remoteStatic && remoteStatic !== localHash)) {
+                autoBaseFullHash = remoteFull;
+                return requestAutoReload('Nouvelle mise à jour détectée : actualisation…', 'html:' + remoteFull);
               }
               return false;
             });
@@ -1597,9 +1717,35 @@ function checkAutoUpdate(force) {
         .catch(function () { return false; })
     : Promise.resolve(false);
   checkHtml.then(function (reloading) {
-    if (reloading || !ghCanRead() || !canAutoRefresh()) { autoBusy = false; return; }
-    return reconcile(true).then(function () { autoBusy = false; }, function () { autoBusy = false; });
-  });
+    if (reloading || autoReloading || !ghCanRead()) { autoBusy = false; return; }
+    var checkUdb = fetchUdbHeadSig().then(function (udbSig) {
+      if (!udbSig) return false;
+      if (!autoUdbEtag) { autoUdbEtag = udbSig; return false; }
+      if (udbSig === autoUdbEtag) return false;
+      autoUdbEtag = udbSig;
+      if (Date.now() < autoSelfPushUntil) return false;
+      var syncFirst = canAutoRefresh() ? reconcile(true).catch(function () {}) : Promise.resolve();
+      return syncFirst.then(function () {
+        return requestAutoReload('Mise à jour GitHub détectée : actualisation…', 'udb:' + udbSig);
+      });
+    });
+    return checkUdb.then(function (reloading2) {
+      if (reloading2 || autoReloading) return;
+      var g = ghEffective();
+      var commitGap = g.token ? 15000 : 75000;
+      if (!force && (Date.now() - autoCommitCheckAt < commitGap)) return;
+      autoCommitCheckAt = Date.now();
+      return fetchLatestCommitSha().then(function (sha) {
+        if (!sha) return;
+        if (!autoCommitSha) { autoCommitSha = sha; return; }
+        if (sha === autoCommitSha) return;
+        autoCommitSha = sha;
+        if (Date.now() < autoSelfPushUntil) return;
+        autoFastHtmlUntil = Date.now() + 120000;
+        requestAutoReload('Push GitHub détecté : actualisation…', 'sha:' + sha);
+      });
+    });
+  }).then(function () { autoBusy = false; }, function () { autoBusy = false; });
 }
 function reconcile(quiet) {
   if (!ghCanRead()) { CH = loadLocal(); buildAll(); applyFilter(); updateSyncBadge(); return Promise.resolve(false); }
@@ -1908,8 +2054,10 @@ function open(id) {
 function closeAll() {
   ['#sheet', '#form', '#pass', '#apass', '#ghs'].forEach(function (s) { $(s).hidden = true; });
   $('#scrim').hidden = true; document.body.style.overflow = '';
+  editing = null;
   stopCam();
   histRelease();
+  flushPendingReload();
 }
 
 /* ---------------- mot de passe ---------------- */
@@ -2699,6 +2847,7 @@ function exitBulk() {
   $('#bulkbar').hidden = true;
   var els = grid.querySelectorAll('.cd.sel');
   for (var i = 0; i < els.length; i++) els[i].classList.remove('sel');
+  flushPendingReload();
 }
 function selectView() {
   for (var i = 0; i < VIEW.length; i++) BULKSEL[VIEW[i].ref] = 1;
@@ -2846,7 +2995,7 @@ function init() {
      sans intention locale adopte le distant ; les photos en attente partent en
      fichiers img/, puis la file de détourage IA tourne en arrière-plan */
   reconcile().then(function () { runAI(); maybeFollowSite(); initAutoHtmlSig(); }).catch(function () { maybeFollowSite(); initAutoHtmlSig(); });
-  setInterval(function () { if (document.visibilityState !== 'hidden') checkAutoUpdate(false); }, 45000);
+  setInterval(function () { if (document.visibilityState !== 'hidden') checkAutoUpdate(false); }, 10000);
   /* nouvelle version du catalogue (index.html redéployé) ? */
   try {
     var prevBuild = localStorage.getItem('catpro.build');

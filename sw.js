@@ -1,5 +1,5 @@
 /* Service worker minimal : coquille + données en cache, images cache-first borné. */
-var V = 'catpro-v8';
+var V = 'catpro-v9';
 var SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png'];
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(V).then(function (c) { return c.addAll(SHELL); }).then(function () { return self.skipWaiting(); }));
@@ -24,7 +24,7 @@ self.addEventListener('fetch', function (e) {
      le cache ne sert que de repli hors-ligne */
   var isNav = e.request.mode === 'navigate' || /index\.html$/.test(u.pathname);
   e.respondWith(fetch(e.request, isNav ? { cache: 'no-store' } : undefined).then(function (res) {
-    var cp = res.clone(); caches.open(V).then(function (c) { c.put(e.request, cp); });
+    if (!u.search && res.ok) { var cp = res.clone(); caches.open(V).then(function (c) { c.put(e.request, cp); }); }
     return res;
   }).catch(function () { return caches.match(e.request); }));
 });
