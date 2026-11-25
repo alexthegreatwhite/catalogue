@@ -317,6 +317,7 @@ label textarea:focus{border-color:var(--br);background:#fff}
     </div>
     <label>Code EAN<input id="i-ean" class="mono" inputmode="numeric" maxlength="18" autocomplete="off" placeholder="Facultatif"></label>
     <label>Description<textarea id="i-desc" rows="3" maxlength="600" placeholder="Facultatif — visible uniquement sur la fiche produit, pris en compte par la recherche"></textarea></label>
+    <label>Note<textarea id="i-note" rows="3" maxlength="600" placeholder="Facultatif — note personnelle visible uniquement sur la fiche produit, jamais modifiée par la synchro"></textarea></label>
     <div class="row2">
       <label>Catégorie <span class="req" id="rq-cat" hidden>*</span><select id="i-cat"></select></label>
       <label>Sous-catégorie <span class="req" id="rq-scat" hidden>*</span><select id="i-scat"></select></label>
@@ -1056,6 +1057,7 @@ function buildAll() {
       pays: cap1((x.p && x.p.trim()) ? x.p : ((bm && bm.p) || '')),
       cond: x.c || ((bm && bm.c) || ''),
       desc: cap1(x.d || ((bm && bm.d) || '')),
+      note: (x.nt && String(x.nt).trim()) ? String(x.nt).trim() : ((bm && bm.nt) || ''),
       ean: (x.e && x.e.trim()) ? x.e : ((bm && bm.e) || ''),
       pr: (x.pr != null && String(x.pr).trim()) ? String(x.pr).trim() : ((bm && bm.pr) || ''),
       pk: (x.pk != null && String(x.pk).trim()) ? String(x.pk).trim() : ((bm && bm.pk) || ''),
@@ -2409,6 +2411,7 @@ function openDetail(p) {
         '<div class="dcell wide"><span>Catégorie</span><b>' + esc(isNonClasse(p) ? 'Non classés' : CATLABEL[p.cat] + (p.sub ? ' — ' + (SUBLABEL[p.sub] || p.sub) : '')) + '</b></div>' +
         '<div class="dcell wide"><span>Conditionnement</span><b>' + esc(p.cond || 'Non précisé') + '</b></div>' +
         '<div class="dcell wide"><span>Description</span><b class="dbio">' + esc(p.desc || 'Non renseignée') + '</b></div>' +
+        '<div class="dcell wide"><span>Note</span><b class="dbio">' + esc(p.note || 'Non renseignée') + '</b></div>' +
         '<div class="dcell wide"><span>Code EAN</span><b>' + (p.ean ? esc(p.ean) : 'Non renseigné') + '</b></div>' +
         (adminMode ? '' : '<div class="dcell wide bc"><span>Code-barres caisse (Code 128)</span><b>' + c128big(caisseOf(p.ref)) + '<i>' + esc(caisseOf(p.ref)) + '</i><em class="bchint">Cliquez sur le code pour l’agrandir plein écran (scan douchette facile)</em></b></div>') +
       '</div>' +
@@ -2449,6 +2452,7 @@ function openForm(p) {
   var prEl = $('#i-prix'); if (prEl) prEl.value = p ? (p.pr || '') : '';
   var pkEl = $('#i-pkg'); if (pkEl) pkEl.value = p ? (p.pk || '') : '';
   $('#i-desc').value = p ? (p.desc || '') : '';
+  var noteEl = $('#i-note'); if (noteEl) noteEl.value = p ? (p.note || '') : '';
   fillCatSelects(p);
   $('#ferr').hidden = true; $('#refhint').textContent = '';
   showPhoto();
@@ -2598,7 +2602,10 @@ function saveForm() {
   }
   var mgVal = (editing && editing.mg) ? 1 : 0;
   if (!editing || gSel !== (editing.cat || '') || sgSel !== (editing.sub || '')) mgVal = 1;
+  var noteEl = $('#i-note');
+  var noteVal = noteEl ? noteEl.value.trim() : (editing && editing.note ? editing.note : '');
   CH.up[ref] = { r: ref, n: cap1(nom), m: cap1($('#i-marque').value), p: cap1($('#i-pays').value), c: condVal, d: cap1($('#i-desc').value), e: eanVal, pr: prVal, pk: pkVal, pu: puVal, g: gSel, sg: sgSel, _t: Date.now() };
+  if (noteVal) CH.up[ref].nt = noteVal;
   if (mcVal) CH.up[ref].mc = 1;
   if (mgVal) CH.up[ref].mg = 1;
   delete CH.del[ref];   /* (re)créer retire le tombstone de suppression : sans cela,
@@ -2864,6 +2871,7 @@ function applyBulk() {
     var p = findProd(refs[i]);
     if (!p) continue;
     CH.up[refs[i]] = { r: refs[i], n: p.nom, m: p.marque, p: p.pays, c: p.cond, d: p.desc || '', e: p.ean || '', pr: p.pr || '', pk: p.pk || '', pu: p.pu || '', g: g, sg: sg, mg: 1, _t: Date.now() };
+    if (p.note) CH.up[refs[i]].nt = p.note;
     if (p.mc) CH.up[refs[i]].mc = 1;
     delete CH.del[refs[i]];
   }
