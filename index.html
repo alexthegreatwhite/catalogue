@@ -269,6 +269,7 @@ label textarea:focus{border-color:var(--br);background:#fff}
   <div id="admbar" class="admbar" hidden>
     <span id="admlbl">🛡️ Mode Admin — Marge négative ≤ -10 %</span>
     <span class="admacts">
+      <button id="a-sort" type="button" class="abtn" title="Trier par marge en %">↕ Tri : Nom</button>
       <button id="a-lock" type="button" class="abtn">🔒 Verrouiller</button>
       <button id="a-exit" type="button" class="abtn primary">Quitter Admin</button>
     </span>
@@ -468,7 +469,7 @@ var CATS = [
 var CATLABEL = {}, SUBLABEL = {};
 CATS.forEach(function (c) { CATLABEL[c.id] = c.label; (c.subs || []).forEach(function (s) { SUBLABEL[s.id] = s.label; }); });
 var cat = 'tout', sub = 'all';
-var bulkMode = false, BULKSEL = {}, adminMode = false, ADMIN_MAP = null;
+var bulkMode = false, BULKSEL = {}, adminMode = false, ADMIN_MAP = null, admSort = 'alpha';
 var CH = emptyCH(), dirty = false, ghBusy = false, ghStart = 0;
 var editing = null, photoData = null, photoKept = false, photoHi = null;
 var photoRemoved = false;   /* « ✕ Retirer » : différé jusqu'à Enregistrer (bug du 23/10 : la suppression immédiate survivait à Annuler) */
@@ -1708,6 +1709,11 @@ function commitCH(keep) {
 /* « Non classés » : produits sans groupe, ou dont le groupe est inconnu du
    plan de classement (CATS). Rayon VIRTUEL : jamais proposable à l'affectation
    (formulaire et mode lot l'excluent), il sert à repérer les fiches à ranger. */
+function admMarginNum(p) {
+  var a = ADMIN_MAP && ADMIN_MAP[p.ref];
+  var v = a ? Number(String(a.mg).replace(',', '.')) : 0;
+  return isFinite(v) ? v : 0;
+}
 function activePool() {
   return (adminMode && ADMIN_MAP) ? ALL.filter(function (p) { return !!ADMIN_MAP[p.ref]; }) : ALL;
 }
@@ -1721,7 +1727,7 @@ function computeView() {
      « pignon » trouve « champignon ». La requête est découpée en mots
      (espaces, ponctuation, apostrophes ignorés) et normalisée (accents). */
   var nt = query ? norm(query).split(TOK).filter(Boolean) : [];
-  return activePool().filter(function (p) {
+  var res = activePool().filter(function (p) {
     if (!nt.length) {
       /* sans recherche : on affiche le rayon choisi */
       if (cat !== 'tout') {
@@ -1736,6 +1742,14 @@ function computeView() {
     for (var i = 0; i < nt.length; i++) if (h.indexOf(nt[i]) < 0) return false;
     return true;
   });
+  if (adminMode && (admSort === 'asc' || admSort === 'desc')) {
+    var dir = admSort === 'asc' ? 1 : -1;
+    res.sort(function (a, b) {
+      var d = (admMarginNum(a) - admMarginNum(b)) * dir;
+      return d !== 0 ? d : cmpAlpha(a, b);
+    });
+  }
+  return res;
 }
 function applyFilter(keep) {
   if (keep) { mutateGrid(); return; }
@@ -1967,7 +1981,7 @@ function decryptAdmWithOkm(parsed, okm) {
     });
 }
 function updateAdminUI() {
-  var bar = $('#admbar'), btn = $('#m-admin');
+  var bar = $('#admbar'), btn = $('#m-admin'), sbtn = $('#a-sort');
   if (bar) {
     bar.hidden = !adminMode;
     if (adminMode) {
@@ -1975,7 +1989,22 @@ function updateAdminUI() {
       $('#admlbl').textContent = '🛡️ Mode Admin — Marges ≤ -10 % (' + n + ' produit' + (n > 1 ? 's' : '') + ')';
     }
   }
+  if (sbtn) {
+    sbtn.textContent = admSort === 'asc' ? '📈 Marge ↑ (croissante)'
+                     : admSort === 'desc' ? '📉 Marge ↓ (décroissante)'
+                     : '↕ Tri : Nom';
+    sbtn.title = admSort === 'asc' ? 'Actuel : pire marge vers -10 % (clic → décroissante)'
+               : admSort === 'desc' ? 'Actuel : -10 % vers pire marge (clic → par nom)'
+               : 'Trier par marge en % (clic → croissante)';
+  }
   if (btn) btn.textContent = adminMode ? '🛒 Quitter Admin' : '🛡️ Admin';
+}
+function cycleAdminSort() {
+  admSort = admSort === 'alpha' ? 'asc' : (admSort === 'asc' ? 'desc' : 'alpha');
+  updateAdminUI();
+  ignoreScrollUntil = Date.now() + 500;
+  window.scrollTo(0, 0);
+  applyFilter();
 }
 function activateAdmin(map) {
   ADMIN_MAP = map || {};
@@ -1990,6 +2019,7 @@ function activateAdmin(map) {
 }
 function exitAdmin() {
   adminMode = false;
+  admSort = 'alpha';
   clearSearch();
   cat = 'tout'; sub = 'all';
   updateAdminUI();
@@ -2859,6 +2889,7 @@ function init() {
   $('#m-info').onclick = function () { toast(syncInfo(), 'warn'); };
   $('#m-gh').onclick = openGH;
   $('#m-admin').onclick = enterAdmin;
+  $('#a-sort').onclick = cycleAdminSort;
   $('#a-exit').onclick = exitAdmin;
   $('#a-lock').onclick = lockAdmin;
   $('#fimp').onchange = function (e) { if (e.target.files[0]) importCH(e.target.files[0]); e.target.value = ''; };
