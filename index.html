@@ -2411,7 +2411,7 @@ function openDetail(p) {
         '<div class="dcell wide"><span>Catégorie</span><b>' + esc(isNonClasse(p) ? 'Non classés' : CATLABEL[p.cat] + (p.sub ? ' — ' + (SUBLABEL[p.sub] || p.sub) : '')) + '</b></div>' +
         '<div class="dcell wide"><span>Conditionnement</span><b>' + esc(p.cond || 'Non précisé') + '</b></div>' +
         '<div class="dcell wide"><span>Description</span><b class="dbio">' + esc(p.desc || 'Non renseignée') + '</b></div>' +
-        '<div class="dcell wide"><span>Note</span><b class="dbio">' + esc(p.note || 'Non renseignée') + '</b></div>' +
+        '<div class="dcell wide"><span>Note</span><b class="dbio">' + esc(p.note || '') + '</b></div>' +
         '<div class="dcell wide"><span>Code EAN</span><b>' + (p.ean ? esc(p.ean) : 'Non renseigné') + '</b></div>' +
         (adminMode ? '' : '<div class="dcell wide bc"><span>Code-barres caisse (Code 128)</span><b>' + c128big(caisseOf(p.ref)) + '<i>' + esc(caisseOf(p.ref)) + '</i><em class="bchint">Cliquez sur le code pour l’agrandir plein écran (scan douchette facile)</em></b></div>') +
       '</div>' +
