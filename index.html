@@ -1137,23 +1137,62 @@ function ghFileDate() {
     })
     .catch(function () { return null; });
 }
+function udbStamp(j) {
+  if (!j || typeof j !== 'object') return -1;
+  var best = 0, k, t;
+  if (j._maj) { t = Date.parse(j._maj); if (isFinite(t) && t > best) best = t; }
+  if (j._pmaj) { t = Date.parse(j._pmaj); if (isFinite(t) && t > best) best = t; }
+  var up = j.up || {};
+  for (k in up) { if (up[k] && up[k]._t > best) best = up[k]._t; }
+  var del = j.del || {};
+  for (k in del) { t = typeof del[k] === 'number' ? del[k] : ((del[k] && del[k]._t) || 0); if (t > best) best = t; }
+  return best;
+}
 function pullRemote() {
   if (!ghCanRead()) return Promise.resolve(null);
   var g = ghEffective();
   var branches = [g.branch, 'main', 'master', 'gh-pages'].filter(function (b, i, a) { return b && a.indexOf(b) === i; });
-  var i = 0;
-  function tryNext() {
-    if (i >= branches.length) { setSrc({ ok: false, url: ghRawUrl(), at: Date.now() }); return Promise.resolve(null); }
-    var url = 'https://raw.githubusercontent.com/' + g.owner + '/' + g.repo + '/' + branches[i] + '/data/userdb.json?t=' + Date.now();
-    i++;
-    return fetchT(url, { headers: { 'Accept': 'application/json' } }, 30000)
-      .then(function (r) {
-        if (!r.ok) return tryNext();
-        return r.json().then(function (j) { setSrc({ ok: true, url: url.split('?')[0], at: Date.now() }); return j; });
-      })
-      .catch(function () { return tryNext(); });
+  var now = Date.now();
+  function pullRawFallback() {
+    var i = 0;
+    function tryNext() {
+      if (i >= branches.length) { setSrc({ ok: false, url: ghRawUrl(), at: Date.now() }); return Promise.resolve(null); }
+      var url = 'https://raw.githubusercontent.com/' + g.owner + '/' + g.repo + '/' + branches[i] + '/data/userdb.json?t=' + Date.now();
+      i++;
+      return fetchT(url, { cache: 'no-store', headers: { 'Accept': 'application/json' } }, 30000)
+        .then(function (r) {
+          if (!r || !r.ok) return tryNext();
+          return r.json().then(function (j) { return { j: j, url: url.split('?')[0] }; });
+        })
+        .catch(function () { return tryNext(); });
+    }
+    var pPages = /\.github\.io$/.test(location.hostname)
+      ? fetchT('data/userdb.json?cb=' + now, { cache: 'no-store', headers: { 'Accept': 'application/json' } }, 20000)
+          .then(function (r) { return (r && r.ok) ? r.json().then(function (j) { return { j: j, url: location.origin + location.pathname.replace(/[^/]*$/, '') + 'data/userdb.json' }; }) : null; })
+          .catch(function () { return null; })
+      : Promise.resolve(null);
+    return Promise.all([pPages, tryNext()]).then(function (arr) {
+      var a = arr[0], b = arr[1];
+      var pick = (a && b) ? (udbStamp(a.j) >= udbStamp(b.j) ? a : b) : (a || b);
+      if (!pick || !pick.j) { setSrc({ ok: false, url: ghRawUrl(), at: Date.now() }); return null; }
+      setSrc({ ok: true, url: pick.url, at: Date.now() });
+      return pick.j;
+    });
   }
-  return tryNext();
+  if (g.token) {
+    var apiUrl = 'https://api.github.com/repos/' + g.owner + '/' + g.repo + '/contents/data/userdb.json?ref=' + encodeURIComponent(g.branch || 'main') + '&cb=' + now;
+    return fetchT(apiUrl, { cache: 'no-store', headers: { 'Accept': 'application/vnd.github.raw+json', 'Authorization': 'Bearer ' + g.token } }, 25000)
+      .then(function (r) {
+        if (!r || !r.ok) return pullRawFallback();
+        return r.json().then(function (j) {
+          if (!j || !j.up) return pullRawFallback();
+          setSrc({ ok: true, url: ghRawUrl(), at: Date.now() });
+          return j;
+        });
+      })
+      .catch(function () { return pullRawFallback(); });
+  }
+  return pullRawFallback();
 }
 /* commit le fichier data/userdb.json dans le dépôt (création ou mise à jour) */
 /* contenu poussé dans data/userdb.json : SANS les photos en data-URL
@@ -1629,13 +1668,21 @@ function flushPendingReload() {
   }
 }
 function fetchUdbHeadSig() {
+  if (/\.github\.io$/.test(location.hostname)) {
+    return fetchT('data/userdb.json?cb=' + Date.now(), { method: 'HEAD', cache: 'no-store' }, 8000)
+      .then(function (r) {
+        if (!r || !r.ok) return '';
+        return r.headers.get('etag') || r.headers.get('last-modified') || r.headers.get('content-length') || '';
+      })
+      .catch(function () { return ''; });
+  }
   if (!ghCanRead()) return Promise.resolve('');
   var g = ghEffective();
   var url = 'https://raw.githubusercontent.com/' + g.owner + '/' + g.repo + '/' + (g.branch || 'main') + '/data/userdb.json?cb=' + Date.now();
   return fetchT(url, { method: 'HEAD', cache: 'no-store' }, 8000)
     .then(function (r) {
       if (!r || !r.ok) return '';
-      return r.headers.get('etag') || r.headers.get('content-length') || '';
+      return r.headers.get('etag') || r.headers.get('last-modified') || r.headers.get('content-length') || '';
     })
     .catch(function () { return ''; });
 }
@@ -1678,8 +1725,8 @@ function initAutoHtmlSig() {
       })
       .catch(function () {});
   }
+  fetchUdbHeadSig().then(function (sig) { if (sig) autoUdbEtag = sig; });
   if (ghCanRead()) {
-    fetchUdbHeadSig().then(function (sig) { if (sig) autoUdbEtag = sig; });
     autoCommitCheckAt = Date.now();
     fetchLatestCommitSha().then(function (sha) { if (sha) autoCommitSha = sha; });
   }
@@ -1691,7 +1738,7 @@ function checkAutoUpdate(force) {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
   if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
   var now = Date.now();
-  var minGap = now < autoFastHtmlUntil ? 4000 : 8000;
+  var minGap = now < autoFastHtmlUntil ? 5000 : 30000;
   if (!force && now - autoCheckAt < minGap) return;
   autoCheckAt = now;
   autoBusy = true;
@@ -1711,7 +1758,10 @@ function checkAutoUpdate(force) {
               if (sig) rememberSeenSig(sig);
               if ((autoBaseFullHash && remoteFull && remoteFull !== autoBaseFullHash) || (remoteStatic && remoteStatic !== localHash)) {
                 autoBaseFullHash = remoteFull;
-                return requestAutoReload('Nouvelle mise à jour détectée : actualisation…', 'html:' + remoteFull);
+                var syncBeforeReload = canAutoRefresh() ? reconcile(true).catch(function () {}) : Promise.resolve();
+                return syncBeforeReload.then(function () {
+                  return requestAutoReload('Nouvelle mise à jour détectée : actualisation…', 'html:' + remoteFull);
+                });
               }
               return false;
             });
@@ -1719,20 +1769,20 @@ function checkAutoUpdate(force) {
         .catch(function () { return false; })
     : Promise.resolve(false);
   checkHtml.then(function (reloading) {
-    if (reloading || autoReloading || !ghCanRead()) { autoBusy = false; return; }
+    if (reloading || autoReloading) { autoBusy = false; return; }
     var checkUdb = fetchUdbHeadSig().then(function (udbSig) {
       if (!udbSig) return false;
       if (!autoUdbEtag) { autoUdbEtag = udbSig; return false; }
       if (udbSig === autoUdbEtag) return false;
       autoUdbEtag = udbSig;
       if (Date.now() < autoSelfPushUntil) return false;
-      var syncFirst = canAutoRefresh() ? reconcile(true).catch(function () {}) : Promise.resolve();
-      return syncFirst.then(function () {
-        return requestAutoReload('Mise à jour GitHub détectée : actualisation…', 'udb:' + udbSig);
-      });
+      if (canAutoRefresh()) {
+        return reconcile(true).catch(function () {}).then(function () { return false; });
+      }
+      return false;
     });
     return checkUdb.then(function (reloading2) {
-      if (reloading2 || autoReloading) return;
+      if (reloading2 || autoReloading || !ghCanRead()) return;
       var g = ghEffective();
       var commitGap = g.token ? 15000 : 75000;
       if (!force && (Date.now() - autoCommitCheckAt < commitGap)) return;
@@ -1743,8 +1793,16 @@ function checkAutoUpdate(force) {
         if (sha === autoCommitSha) return;
         autoCommitSha = sha;
         if (Date.now() < autoSelfPushUntil) return;
-        autoFastHtmlUntil = Date.now() + 120000;
-        requestAutoReload('Push GitHub détecté : actualisation…', 'sha:' + sha);
+        /* Le push vient d'arriver sur GitHub : on synchronise immédiatement userdb.json
+           (instantané via API si jeton) et on active la surveillance rapide (5s) pour
+           ne recharger index.html qu'une fois que GitHub Pages l'a réellement publié. */
+        autoFastHtmlUntil = Date.now() + 180000;
+        if (canAutoRefresh()) {
+          reconcile(true).catch(function () {});
+        }
+        if (!/\.github\.io$/.test(location.hostname)) {
+          maybeFollowSite();
+        }
       });
     });
   }).then(function () { autoBusy = false; }, function () { autoBusy = false; });
@@ -1782,14 +1840,10 @@ function reconcile(quiet) {
       CH._pmaj = remote._pmaj || CH._pmaj || window.PRICE_MAJ || null;
       try { if (CH._pmaj) localStorage.setItem(K_PMAJ, CH._pmaj); } catch (e) {}
       saveLocal(); setRev(CH);
-      if (quiet && received === 0 && pmChanged) {
-        updateSyncBadge(); majFromGH();
-        toast('Mise à jour des prix détectée.', 'ok');
-        return false;
-      }
       buildAll(); applyFilter(!!quiet); renderCats(); renderSubs(); updateSyncBadge();
       majFromGH();
       if (received > 0) toast('Mise à jour appliquée : ' + received + ' élément(s) reçu(s) du dépôt.', 'ok');
+      else if (pmChanged) toast('Mise à jour des prix appliquée.', 'ok');
       if (ghCanWrite() && (hasPendingPhotos() || loadPCopy().length)) {
         uploadPendingPhotos().then(function () { return processPCopy(); }).then(function () { runAI(); });
       }
