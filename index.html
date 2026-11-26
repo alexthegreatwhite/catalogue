@@ -477,7 +477,7 @@ var photoBusy = false;      /* compression galerie en cours : Enregistrer patien
 var PHMEM = null;              /* photos produites sur cet appareil (session) : affichées avant que GitHub Pages soit à jour */
 var fileSha = {};              /* dernier sha de blob connu par fichier img/ (évite une relecture à chaque écriture) */
 var REMOTE_PH = null;          /* instantané du « ph » distant (migration des caches antérieurs aux fichiers img/) */
-var ghQ = Promise.resolve();   /* file SÉRIELLE des écritures GitHub (l'API impose des commits séquentiels) */
+var ghQ = Promise.resolve(), reconcileDone = false, reconcileBusy = false;   /* file SÉRIELLE des écritures GitHub (l'API impose des commits séquentiels) */
 var aiBusy = false, aiRun = null, aiTimer = null, aiBackoff = 60000, memJobs = null, lastAIErr = null;
 var afterUnlock = null, camStream = null, facing = 'environment';
 var grid = $('#grid'), highlight = '';
@@ -503,7 +503,7 @@ function cleanMojibake(s) {
     .replace(/\u00C3\u0080/g, 'À').replace(/\u00C3\u0160/g, 'Ê').replace(/\u00C3\u201D/g, 'Ô').replace(/\u00C3\u2021/g, 'Ç')
     .replace(/\u00C3\u201A/g, 'Â').replace(/\u00C3\u017D/g, 'Î').replace(/\u00C3\u203A/g, 'Û');
 }
-function cleanTxt(s) { if (s == null) return ''; return cleanMojibake(s).replace(/\u0153/g, 'oe').replace(/\u0152/g, 'OE'); }
+function cleanTxt(s) { if (s == null) return ''; return cleanMojibake(s); }
 function norm(s) { return cleanTxt(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\u0153/g, 'oe').replace(/\u00E6/g, 'ae').replace(/\u00DF/g, 'ss').replace(/\uFB01/g, 'fi').replace(/\uFB02/g, 'fl'); }
 /* Un « mot » = suite de lettres/chiffres (apostrophes, tirets, ponctuation
    séparent les mots) : sert à découper la requête en mots cherchés. */
@@ -609,6 +609,7 @@ function phFallback(im) {
   im.onerror = function () { im.onerror = null; im.src = PLACEHOLDER; };
   im.src = ghRawFileUrl(path) + q;
 }
+window.phFallback = phFallback;
 /* écritures GitHub SÉRIELLES : l'API rejette les requêtes « contents » parallèles */
 /* fetch AVEC TIMEOUT (AbortController) : en mobile, une requête suspendue
    (bascule réseau, veille, connexion instable) bloquait pour toujours les
@@ -1013,7 +1014,7 @@ function healCH() {
       if (typeof v === 'string') { nv = cap1(v); if (nv !== v) { r[fs[j]] = nv; n++; } }
     }
   }
-  if (n) { saveLocal(); dirty = true; if (ghCanWrite()) schedulePush(); }
+  if (n) { saveLocal(); if (reconcileDone) { dirty = true; if (ghCanWrite()) schedulePush(); } }
   return n;
 }
 function extractCondNb(c) {
@@ -1249,12 +1250,22 @@ function pushRemote(attempt) {
       if (!r.ok) {
         return r.json().then(function (e) {
           var msg = (e && e.message) || ('HTTP ' + r.status);
-          /* sha périmé : on INVALIDE le sha caché puis on relit un sha neuf
-             avant de réessayer (jusqu'à 3 fois) */
+          /* sha périmé : on INVALIDE le sha caché, on tire + fusionne le distant
+             avant de réessayer (jusqu'à 3 fois) pour ne jamais écraser les MAJ serveur */
           if ((r.status === 409 || r.status === 422) && /match/i.test(msg) && (!attempt || attempt < 3)) {
             setSha(null);
             ghBusy = false;
-            return pushRemote((attempt || 0) + 1);
+            return pullRemote().then(function (remote) {
+              if (remote && remote.up && (Object.keys(remote.up).length > 0 || Object.keys(CH.up || {}).length <= 20)) {
+                var localNow = CH;
+                CH = applyTombstones(mergeRemote(remote, localNow, diffRefs(localNow, remote)), localNow);
+                if (remote._pmaj) { CH._pmaj = remote._pmaj; try { localStorage.setItem(K_PMAJ, CH._pmaj); } catch (e2) {} }
+                saveLocal(); buildAll(); applyFilter(true);
+              }
+              return pushRemote((attempt || 0) + 1);
+            }, function () {
+              return pushRemote((attempt || 0) + 1);
+            });
           }
           throw new Error(msg);
         });
@@ -1460,9 +1471,17 @@ function mergeRemote(remote, local, refs) {
           if ((!out.up[k].e || !out.up[k].e.trim()) && rUp.e) out.up[k].e = rUp.e;
           if ((!out.up[k].p || !out.up[k].p.trim()) && rUp.p) out.up[k].p = rUp.p;
           if ((!out.up[k].d || !out.up[k].d.trim()) && rUp.d) out.up[k].d = rUp.d;
-          if ((!out.up[k].pr || !String(out.up[k].pr).trim()) && rUp.pr) out.up[k].pr = rUp.pr;
-          if ((!out.up[k].pk || !String(out.up[k].pk).trim()) && rUp.pk) out.up[k].pk = rUp.pk;
-          if ((out.up[k].pu == null || out.up[k].pu === '') && rUp.pu) out.up[k].pu = rUp.pu;
+          /* Protection des prix serveur : si l'utilisateur n'a pas explicitement modifié le prix (mp !== 1),
+             les tarifs distants (ACK) priment sur le cache local lors d'éditions de note/classement */
+          if (!lUp.mp) {
+            if (rUp.pr && String(rUp.pr).trim()) out.up[k].pr = rUp.pr;
+            if (rUp.pk && String(rUp.pk).trim()) out.up[k].pk = rUp.pk;
+            if (rUp.pu != null && rUp.pu !== '') out.up[k].pu = rUp.pu;
+          } else {
+            if ((!out.up[k].pr || !String(out.up[k].pr).trim()) && rUp.pr) out.up[k].pr = rUp.pr;
+            if ((!out.up[k].pk || !String(out.up[k].pk).trim()) && rUp.pk) out.up[k].pk = rUp.pk;
+            if ((out.up[k].pu == null || out.up[k].pu === '') && rUp.pu) out.up[k].pu = rUp.pu;
+          }
           if (out.up[k].g == null && rUp.g != null) out.up[k].g = rUp.g;
           if (out.up[k].sg == null && rUp.sg != null) out.up[k].sg = rUp.sg;
         }
@@ -1808,10 +1827,23 @@ function checkAutoUpdate(force) {
   }).then(function () { autoBusy = false; }, function () { autoBusy = false; });
 }
 function reconcile(quiet) {
-  if (!ghCanRead()) { CH = loadLocal(); buildAll(); applyFilter(); updateSyncBadge(); return Promise.resolve(false); }
-  var local = loadLocal();
+  if (!ghCanRead()) { reconcileDone = true; CH = loadLocal(); buildAll(); applyFilter(); updateSyncBadge(); return Promise.resolve(false); }
+  if (reconcileBusy) return Promise.resolve(false);
+  reconcileBusy = true;
+  var local0 = loadLocal();
+  var localSnap0 = JSON.stringify(local0);
   return pullRemote().then(function (remote) {
-    if (!remote || !remote.up) { if (quiet) return false; CH = local; buildAll(); applyFilter(); updateSyncBadge(); return false; }
+    reconcileBusy = false;
+    var local = loadLocal();
+    if (JSON.stringify(local) === localSnap0) local = local0;
+    var rUpLen = remote && remote.up ? Object.keys(remote.up).length : 0;
+    var rDelLen = remote && remote.del ? Object.keys(remote.del).length : 0;
+    var lUpLen = local && local.up ? Object.keys(local.up).length : 0;
+    if (!remote || !remote.up || (rUpLen === 0 && rDelLen === 0 && lUpLen > 20)) {
+      reconcileDone = true;
+      if (quiet) return false;
+      CH = local; buildAll(); applyFilter(); updateSyncBadge(); return false;
+    }
     REMOTE_PH = remote.ph || {};
     var received = countRefsDiff(CH, remote);
     /* décide fusion vs adoption en comparant le LOCAL au CONTENU DISTANT
@@ -1833,11 +1865,10 @@ function reconcile(quiet) {
     })();
     var majFromGH = function () { ghFileDate().then(function (d) { if (d) setMaj(d); }); };
     if (diffLR === 0) {
+      reconcileDone = true;
       var pmChanged = !!(remote._pmaj && CH && remote._pmaj !== CH._pmaj);
       if (quiet && received === 0 && !pmChanged) return false;
-      CH = applyTombstones({ up: remote.up || {}, del: remote.del || {}, ph: remote.ph || {} }, local);
-      if (!CH._maj) CH._maj = remote._maj || null;
-      CH._pmaj = remote._pmaj || CH._pmaj || window.PRICE_MAJ || null;
+      CH = { up: remote.up || {}, del: remote.del || {}, ph: remote.ph || {}, _maj: remote._maj || null, _pmaj: remote._pmaj || window.PRICE_MAJ || null };
       try { if (CH._pmaj) localStorage.setItem(K_PMAJ, CH._pmaj); } catch (e) {}
       saveLocal(); setRev(CH);
       buildAll(); applyFilter(!!quiet); renderCats(); renderSubs(); updateSyncBadge();
@@ -1859,6 +1890,7 @@ function reconcile(quiet) {
        Sur un appareil À JETON, on garde la fusion + push ci-dessous : elle
        protège le travail hors ligne pas encore envoyé. */
     if (!ghCanWrite()) {
+      reconcileDone = true;
       CH = { up: remote.up || {}, del: remote.del || {}, ph: remote.ph || {}, _maj: remote._maj || null, _pmaj: remote._pmaj || window.PRICE_MAJ || null };
       try { if (CH._pmaj) localStorage.setItem(K_PMAJ, CH._pmaj); } catch (e) {}
       saveLocal(); setRev(CH);
@@ -1868,16 +1900,32 @@ function reconcile(quiet) {
       return false;
     }
     /* local différent du distant : fusion (arbitrage au plus récent, voir
-       mergeRemote) puis push ; la date affichée viendra du commit GitHub */
+       mergeRemote) puis push uniquement si le résultat diffère du distant */
+    reconcileDone = true;
     CH = applyTombstones(mergeRemote(remote, local, diffRefs(local, remote)), local);
+    CH._pmaj = remote._pmaj || CH._pmaj || window.PRICE_MAJ || null;
+    try { if (CH._pmaj) localStorage.setItem(K_PMAJ, CH._pmaj); } catch (e) {}
+    var needPushAfterMerge = countRefsDiff(CH, remote) > 0;
     saveLocal();
+    if (!needPushAfterMerge) { dirty = false; setRev(CH); }
     buildAll(); applyFilter(); updateSyncBadge();
     majFromGH();
+    if (!needPushAfterMerge) {
+      if (received > 0) toast('Mise à jour appliquée : ' + received + ' élément(s) reçu(s) du dépôt.', 'ok');
+      if (hasPendingPhotos() || loadPCopy().length) {
+        return uploadPendingPhotos().then(function () { return processPCopy(); }).then(function () { runAI(); });
+      }
+      return false;
+    }
     toast('Modifications locales fusionnées et poussées sur GitHub.', 'ok');
     return uploadPendingPhotos()
       .then(function () { return processPCopy(); })
       .then(function () { return pushRemote(); })
       .then(function () { runAI(); });
+  }, function (err) {
+    reconcileBusy = false;
+    reconcileDone = true;
+    throw err;
   });
 }
 /* applique une modification locale puis pousse sur GitHub */
@@ -2658,10 +2706,12 @@ function saveForm() {
   if (!editing || gSel !== (editing.cat || '') || sgSel !== (editing.sub || '')) mgVal = 1;
   var noteEl = $('#i-note');
   var noteVal = noteEl ? noteEl.value.trim() : (editing && editing.note ? editing.note : '');
+  var mpVal = (!editing ? (prVal !== '') : (prVal !== oldPr || pkVal !== oldPk || (editing && condVal !== oldCond))) ? 1 : ((CH.up[ref] && CH.up[ref].mp) ? 1 : 0);
   CH.up[ref] = { r: ref, n: cap1(nom), m: cap1($('#i-marque').value), p: cap1($('#i-pays').value), c: condVal, d: cap1($('#i-desc').value), e: eanVal, pr: prVal, pk: pkVal, pu: puVal, g: gSel, sg: sgSel, _t: Date.now() };
   if (noteVal) CH.up[ref].nt = noteVal;
   if (mcVal) CH.up[ref].mc = 1;
   if (mgVal) CH.up[ref].mg = 1;
+  if (mpVal) CH.up[ref].mp = 1;
   delete CH.del[ref];   /* (re)créer retire le tombstone de suppression : sans cela,
                            un produit recréé avec un code déjà supprimé serait
                            enregistré/envoyé mais masqué partout (buildAll saute
@@ -2678,15 +2728,16 @@ function saveForm() {
     try { savePCopy(loadPCopy().filter(function (c) { return c.to !== ref; })); } catch (e) {}
     if (oldRef && oldRef !== ref) { memphDel(oldRef); delete CH.ph[oldRef]; }
   }
+  var wasEditing = !!editing;
   closeAll();
   highlight = ref;
   commitCH(true);
   /* NOUVEAU produit uniquement : détourage IA en arrière-plan — mis en file
      APRÈS commitCH/buildAll pour que le traitement trouve la fiche */
-  if (!editing && photoData) enqueueAI(ref, photoHi || photoData);
+  if (!wasEditing && photoData) enqueueAI(ref, photoHi || photoData);
   revealRef(ref);
   setTimeout(function () { highlight = ''; var el = grid.querySelector('.new'); if (el) el.classList.remove('new'); }, 3000);
-  toast(editing ? 'Produit modifié' + (ghConfigured() ? ' et synchronisé.' : '.') : 'Produit ajouté' + (ghConfigured() ? ' et synchronisé.' : '.'), 'ok');
+  toast(wasEditing ? 'Produit modifié' + (ghConfigured() ? ' et synchronisé.' : '.') : 'Produit ajouté' + (ghConfigured() ? ' et synchronisé.' : '.'), 'ok');
   editing = null;
 }
 
@@ -3078,7 +3129,7 @@ function init() {
   $('#menu').onclick = function (e) { e.stopPropagation(); $('#mnu').hidden = !$('#mnu').hidden; };
   document.addEventListener('click', function () { $('#mnu').hidden = true; });
   $('#m-exp').onclick = exportCH;
-  $('#m-imp').onclick = function () { $('#fimp').click(); };
+  $('#m-imp').onclick = function () { requireUnlock(function () { $('#fimp').click(); }); };
   $('#m-sync').onclick = function () { if (!ghCanRead()) { openGH(); return; } reconcile(); };
   $('#m-adopt').onclick = function () {
     if (!ghCanRead()) { toast('Renseignez d’abord owner/repo (⚙️ Base GitHub).', 'warn'); openGH(); return; }
